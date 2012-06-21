@@ -1,6 +1,4 @@
-should = require('chai').should()
-
-Observer = require '../lib/observer'
+Observer = require '../lib/whet.observer'
 
 describe 'Observer:', ->
 	

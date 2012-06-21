@@ -1,6 +1,6 @@
 {
   "name"        : "whet.observer",
-  "version"     : "0.2.1",
+  "version"     : "0.2.3",
   "description" : "A standalone Observer that actually works on node.js",
   "keywords"    : [ "observer", "publish", "subscribe", "task" ],
   "author"      : "Dmitrii Karpich <meettya@gmail.com>",

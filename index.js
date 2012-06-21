@@ -1,1 +1,1 @@
-module.exports = require( './lib/observer' );
+module.exports = require( './lib/whet.observer' );
