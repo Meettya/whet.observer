@@ -1,5 +1,5 @@
 ###
- * whet.observer v0.2.3
+ * whet.observer v0.2.5
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -10,7 +10,8 @@
  * Released under the MIT License
 ###
 
-_ = require 'underscore'
+# resolve require from [window] or by require() 
+_ = @_ ? require 'underscore'
 
 module.exports = class Observer  
   

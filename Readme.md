@@ -2,7 +2,8 @@
 
 # whet.observer
 
-A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
+A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery.
+Oh! Yes, it works in browser too, just connect undercore above. See test_browser for detail.
 
 
 ## Description:

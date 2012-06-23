@@ -1,3 +1,8 @@
+## 0.2.5 / 2012-06-23 02:02 AM
+
+  - Change require('underscore') to browser-compatibility type
+  - Add browser test suite (see /test_browser)
+
 ## 0.2.3 / 2012-06-21 03:38 PM
 
   - Rename base file to whet.observer

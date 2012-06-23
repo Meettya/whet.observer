@@ -1,4 +1,5 @@
 support
 test
+test_browser
 examples
 *.sock
