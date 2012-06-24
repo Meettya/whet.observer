@@ -4,7 +4,7 @@
 
 A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery.
 
-Oh! Yes, it works in browser too, just connect undercore above. See test_browser folder for detail or [jsfiddle example](http://jsfiddle.net/Meettya/r5XkG/9/embedded/result/)
+Oh! Yes, it works in browser too, just connect undercore above. See test_browser folder for detail or [jsfiddle example](http://jsfiddle.net/Meettya/r5XkG/embedded/result/)
 
 
 ## Description:
