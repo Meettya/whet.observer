@@ -1,5 +1,5 @@
 ###
- * whet.observer v0.2.5
+ * whet.observer v0.2.7
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *

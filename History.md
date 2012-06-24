@@ -1,3 +1,7 @@
+## 0.2.7 / 2012-06-24 05:27 PM
+
+  - Add JSFIDDLE example
+
 ## 0.2.5 / 2012-06-23 02:02 AM
 
   - Change require('underscore') to browser-compatibility type
