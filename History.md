@@ -1,3 +1,9 @@
+## 0.2.9 / 2012-06-30 10:51 AM
+
+  - Change test suite to use one version for node and browser
+  - Small fix at package defs
+
+
 ## 0.2.7 / 2012-06-24 05:27 PM
 
   - Add JSFIDDLE example

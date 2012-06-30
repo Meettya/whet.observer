@@ -75,8 +75,8 @@ task 'build_browser_comp_js', 'build browser-compatibility module with stitch', 
   cb() if typeof cb is 'function'
    
 task 'build_test_browser_js', 'build test js for browser', build_test_browser_js = (cb) ->
-  files = fs.readdirSync 'test_browser/src'
-  files = ('test_browser/src/' + file for file in files when file.match(/\.coffee$/))
+  files = fs.readdirSync 'test'
+  files = ('test/' + file for file in files when file.match(/\.coffee$/))
   run ['-c', '-o', 'test_browser/js/'].concat(files), ->
     log ' -> build test js for browser done', green
   cb() if typeof cb is 'function'

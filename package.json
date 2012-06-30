@@ -1,6 +1,6 @@
 {
   "name"        : "whet.observer",
-  "version"     : "0.2.7",
+  "version"     : "0.2.9",
   "description" : "A standalone Observer that actually works on node.js and browser",
   "keywords"    : [ "observer", "publish", "subscribe", "task" ],
   "author"      : "Dmitrii Karpich <meettya@gmail.com>",
@@ -23,7 +23,7 @@
   },
   "main"   : "index.js",
   "engines":      {
-      "node":       ">=0.4.0"
+      "node":       "*"
     },
   "license": "MIT"
 }

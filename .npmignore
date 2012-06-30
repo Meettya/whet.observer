@@ -3,3 +3,4 @@ test
 test_browser
 examples
 *.sock
+.DS_Store

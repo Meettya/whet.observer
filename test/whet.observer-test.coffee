@@ -1,4 +1,11 @@
-Observer = require '../lib/whet.observer'
+###
+Test suite for node AND browser in one file
+So, we are need some data from global
+Its so wrong, but its OK for test
+###
+lib_path = GLOBAL?.lib_path || ''
+
+Observer = require "#{lib_path}whet.observer"
 
 describe 'Observer:', ->
 	
