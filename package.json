@@ -1,29 +1,34 @@
 {
-  "name"        : "whet.observer",
-  "version"     : "0.2.9",
-  "description" : "A standalone Observer that actually works on node.js and browser",
-  "keywords"    : [ "observer", "publish", "subscribe", "task" ],
-  "author"      : "Dmitrii Karpich <meettya@gmail.com>",
-  "dependencies": { 
-    "underscore": ">=1.3.3"
-   }, 
-  "devDependencies": {
-    "coffee-script": ">=1.3.3",
-    "chai": "latest",
-	  "mocha": "latest",
-	  "jade": "latest",
-	  "stitch": "latest"
-  },
-  "scripts": {
-    "test": "cake test"
-  },
-  "repository"  : {
-    "type": "git",
-    "url" : "https://github.com/Meettya/whet.observer.git"
-  },
-  "main"   : "index.js",
-  "engines":      {
-      "node": ">=0.6.0"
+    "name": "whet.observer",
+    "version": "0.2.9",
+    "description": "A standalone Observer that actually works on node.js and browser",
+    "keywords": [
+        "observer",
+        "publish",
+        "subscribe",
+        "task"
+    ],
+    "author": "Dmitrii Karpich <meettya@gmail.com>",
+    "dependencies": {
+        "underscore": ">=1.3.3"
     },
-  "license": "MIT"
+    "devDependencies": {
+        "coffee-script": ">=1.3.3",
+        "chai": "latest",
+        "mocha": "latest",
+        "jade": "latest",
+        "stitch": "latest"
+    },
+    "scripts": {
+        "test": "cake test"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Meettya/whet.observer.git"
+    },
+    "main": "index.js",
+    "engines": {
+        "node": ">=0.6.0"
+    },
+    "license": "MIT"
 }
