@@ -16,9 +16,9 @@ _ = @_ ? require 'underscore'
 module.exports = class Observer  
   
   constructor: -> 
-    @_subscriptions = {}
-    @_publishing    = false
-    @_unsubscribe_queue = []
+    @_subscriptions       = {}
+    @_publishing_counter  = 0
+    @_unsubscribe_queue   = []
   
   ###
   subscribe( topics, callback[, context] )
@@ -61,7 +61,7 @@ module.exports = class Observer
       throw new TypeError @_unsubscribe_error_message topics, callback, context
     
     # If someone is trying to unsubscribe while we're publishing, put it off until publishing is done
-    if @_publishing
+    if @_is_publishing()
       @_unsubscribe_queue.push [topics, callback, context]
       return this
     
@@ -83,9 +83,8 @@ module.exports = class Observer
   - topics (String): the subscription topic(s) to publish to
   - data: any data (in any format) you wish to give to the subscribers
   ###
+ 
   publish: (topics, data...) ->
-    # Let the plugin know we're publishing so that we don't do any unsubscribes until we're done
-    @_publishing = true
 		
     # if somthing go wrong
     unless _.isString(topics)
@@ -93,16 +92,87 @@ module.exports = class Observer
         
     for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
       for task in @_subscriptions[topic]
+        @_publishing_inc()
         @_publish_firing topic, task, data
-        
-    @_publishing = false
+
     @_unsubscribe_resume()
     this
- 
+  
+  publishAsync: (topics, data...) ->
+
+    unless _.isString topics
+      throw new TypeError @_publish_error_message topics, data
+        
+    for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
+      for task in @_subscriptions[topic]
+        @_publishing_inc()
+        do (topic, task, data) =>
+          setTimeout ( => @_publish_firing topic, task, data ), 0
+
+    setTimeout ( => @_unsubscribe_resume() ), 0
+    this
+  
+  ###
+  publish: (topics, data...) ->
+    @_publish_engine 'sync', topics, data
+
+  publishAsync: (topics, data...) ->
+    @_publish_engine 'async', topics, data
+
+
+  _publish_engine: (type, topics, data) ->
+
+    # we are need to have reference to global object
+    _this = @
+
+    engine = 
+      sync :
+        publish : (topic, task, data) -> 
+          #console.log "sync publish"
+          _this._publish_firing topic, task, data
+        unsubscribe : -> @_unsubscribe_resume()
+      async :
+        publish : (topic, task, data_as_array) -> setTimeout ( => @_publish_firing topic, task, data ), 0
+        unsubscribe : -> setTimeout ( => @_unsubscribe_resume() ), 0
+
+    unless engine[type]?
+      throw new TypeError "undefined engine type |#{type}|"
+
+    unless _.isString topics
+      throw new TypeError @_publish_error_message topics, data_as_array
+        
+    for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
+      for task in @_subscriptions[topic]
+        @_publishing_inc()
+        engine[type].publish topic, task, data
+
+    engine[type].unsubscribe()
+    this
+  ###
+
   ###
   !!!! Internal methods from now !!!!
   ###
- 
+
+  ###
+  Self-incapsulate @_publishing_counter properties to internal methods
+  ###
+  _is_publishing: ->
+    !!@_publishing_counter
+
+  _publishing_inc: ->
+    @_publishing_counter += 1
+    null
+
+  _publishing_dec: ->
+    unless @_is_publishing
+      throw Error """
+                    Error on decrement publishing counter
+                      @_publishing_counter is |#{@_publishing_counter}|
+                  """  
+    @_publishing_counter -= 1
+    null
+
   ###
   Internal method for unsubscribe args modificator if method called with handler
   ###
@@ -116,12 +186,14 @@ module.exports = class Observer
   Internal method for unsubscribe continious
   ###  
   _unsubscribe_resume: ->
-    return if @_publishing
+    console.log 'still publishing' if @_is_publishing()
+    return if @_is_publishing()
     # Go through the queue and run unsubscribe again
     while task = @_unsubscribe_queue.shift?()
       console.log "retry unsubscribe #{task}"
-      @unsubscribe.apply this, task
-    return
+      @unsubscribe.apply @, task
+    
+    null
 
   ###
   Internal method for publish firing
@@ -137,8 +209,11 @@ module.exports = class Observer
                       data      = |#{data?.join ', '}|
                       error     = |#{err_msg}|
                     """   
-    return
-    
+    finally
+      @_publishing_dec()
+
+    null
+
   ###
   Internal method for publish error message constructor
   ###
@@ -164,7 +239,7 @@ module.exports = class Observer
   ###
   _subscribe_error_message: (topics, callback, context) ->    
     """
-    Error! on call |subscribe| used non-string topics OR/AND callback isn`t funcrion:
+    Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:
       topics    = |#{topics}|
       callback  = |#{callback}|
       context   = |#{context}|

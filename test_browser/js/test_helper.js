@@ -14,6 +14,6 @@ global helper for chai.should()
   */
 
 
-  GLOBAL.lib_path = '../lib/';
+  GLOBAL.lib_path = '../src/';
 
 }).call(this);

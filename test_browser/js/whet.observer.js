@@ -72,7 +72,7 @@
 
     function Observer() {
       this._subscriptions = {};
-      this._publishing = false;
+      this._publishing_counter = 0;
       this._unsubscribe_queue = [];
     }
 
@@ -129,7 +129,7 @@
       if (!_.isString(topics)) {
         throw new TypeError(this._unsubscribe_error_message(topics, callback, context));
       }
-      if (this._publishing) {
+      if (this._is_publishing()) {
         this._unsubscribe_queue.push([topics, callback, context]);
         return this;
       }
@@ -165,7 +165,6 @@
     Observer.prototype.publish = function() {
       var data, task, topic, topics, _i, _j, _len, _len1, _ref1, _ref2;
       topics = arguments[0], data = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
-      this._publishing = true;
       if (!_.isString(topics)) {
         throw new TypeError(this._publish_error_message(topics, data));
       }
@@ -176,19 +175,110 @@
           _ref2 = this._subscriptions[topic];
           for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
             task = _ref2[_j];
+            this._publishing_inc();
             this._publish_firing(topic, task, data);
           }
         }
       }
-      this._publishing = false;
       this._unsubscribe_resume();
       return this;
     };
+
+    Observer.prototype.publishAsync = function() {
+      var data, task, topic, topics, _fn, _i, _j, _len, _len1, _ref1, _ref2,
+        _this = this;
+      topics = arguments[0], data = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+      if (!_.isString(topics)) {
+        throw new TypeError(this._publish_error_message(topics, data));
+      }
+      _ref1 = topics.split(" ");
+      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+        topic = _ref1[_i];
+        if (topic !== '' && this._subscriptions[topic]) {
+          _ref2 = this._subscriptions[topic];
+          _fn = function(topic, task, data) {
+            return setTimeout((function() {
+              return _this._publish_firing(topic, task, data);
+            }), 0);
+          };
+          for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
+            task = _ref2[_j];
+            this._publishing_inc();
+            _fn(topic, task, data);
+          }
+        }
+      }
+      setTimeout((function() {
+        return _this._unsubscribe_resume();
+      }), 0);
+      return this;
+    };
+
+    /*
+      publish: (topics, data...) ->
+        @_publish_engine 'sync', topics, data
+    
+      publishAsync: (topics, data...) ->
+        @_publish_engine 'async', topics, data
+    
+    
+      _publish_engine: (type, topics, data) ->
+    
+        # we are need to have reference to global object
+        _this = @
+    
+        engine = 
+          sync :
+            publish : (topic, task, data) -> 
+              #console.log "sync publish"
+              _this._publish_firing topic, task, data
+            unsubscribe : -> @_unsubscribe_resume()
+          async :
+            publish : (topic, task, data_as_array) -> setTimeout ( => @_publish_firing topic, task, data ), 0
+            unsubscribe : -> setTimeout ( => @_unsubscribe_resume() ), 0
+    
+        unless engine[type]?
+          throw new TypeError "undefined engine type |#{type}|"
+    
+        unless _.isString topics
+          throw new TypeError @_publish_error_message topics, data_as_array
+            
+        for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
+          for task in @_subscriptions[topic]
+            @_publishing_inc()
+            engine[type].publish topic, task, data
+    
+        engine[type].unsubscribe()
+        this
+    */
+
 
     /*
       !!!! Internal methods from now !!!!
     */
 
+
+    /*
+      Self-incapsulate @_publishing_counter properties to internal methods
+    */
+
+
+    Observer.prototype._is_publishing = function() {
+      return !!this._publishing_counter;
+    };
+
+    Observer.prototype._publishing_inc = function() {
+      this._publishing_counter += 1;
+      return null;
+    };
+
+    Observer.prototype._publishing_dec = function() {
+      if (!this._is_publishing) {
+        throw Error("Error on decrement publishing counter\n  @_publishing_counter is |" + this._publishing_counter + "|");
+      }
+      this._publishing_counter -= 1;
+      return null;
+    };
 
     /*
       Internal method for unsubscribe args modificator if method called with handler
@@ -209,13 +299,17 @@
 
     Observer.prototype._unsubscribe_resume = function() {
       var task, _base;
-      if (this._publishing) {
+      if (this._is_publishing()) {
+        console.log('still publishing');
+      }
+      if (this._is_publishing()) {
         return;
       }
       while (task = typeof (_base = this._unsubscribe_queue).shift === "function" ? _base.shift() : void 0) {
         console.log("retry unsubscribe " + task);
         this.unsubscribe.apply(this, task);
       }
+      return null;
     };
 
     /*
@@ -228,7 +322,10 @@
         task[0].apply(task[1], [topic].concat(data));
       } catch (err_msg) {
         console.error("Error on call callback we got exception:\n  topic     = |" + topic + "|\n  callback  = |" + task[0] + "|\n  data      = |" + (data != null ? data.join(', ') : void 0) + "|\n  error     = |" + err_msg + "|");
+      } finally {
+        this._publishing_dec();
       }
+      return null;
     };
 
     /*
@@ -255,7 +352,7 @@
 
 
     Observer.prototype._subscribe_error_message = function(topics, callback, context) {
-      return "Error! on call |subscribe| used non-string topics OR/AND callback isn`t funcrion:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|";
+      return "Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|";
     };
 
     return Observer;
