@@ -1,5 +1,5 @@
 ###
- * whet.observer v0.3.3
+ * whet.observer v0.3.5
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -32,7 +32,7 @@ module.exports = class Observer
 
     # Make sure that each argument is valid
     unless _.isString(topics) or _.isFunction(callback)
-      throw new TypeError @_subscribe_error_message topics, callback, context
+      throw TypeError @_subscribe_error_message topics, callback, context
     
     for topic in topics.split(" ") when topic isnt '' or not usedTopics[topic]
       usedTopics[topic] = true
@@ -58,7 +58,7 @@ module.exports = class Observer
  
     # if somthing go wrong
     unless _.isString(topics)
-      throw new TypeError @_unsubscribe_error_message topics, callback, context
+      throw TypeError @_unsubscribe_error_message topics, callback, context
     
     # If someone is trying to unsubscribe while we're publishing, put it off until publishing is done
     if @_is_publishing()
@@ -94,6 +94,8 @@ module.exports = class Observer
   ###
   publishAsync: (topics, data...) ->
     @_publisher 'async', topics, data
+
+
 
   ###
   !!!! Internal methods from now !!!!
@@ -134,12 +136,12 @@ module.exports = class Observer
         publish : (topic, task, data) -> setTimeout ( -> _this._publish_firing topic, task, data ), 0
         unsubscribe : -> setTimeout ( -> _this._unsubscribe_resume() ), 0
 
-    unless engine_dictionary[type]?
-      throw new TypeError """
+    unless (selected_engine = engine_dictionary[type])?
+      throw TypeError """
                             Error undefined publisher engine type |#{type}|
                           """  
 
-    [engine_dictionary[type].publish, engine_dictionary[type].unsubscribe]
+    [selected_engine.publish, selected_engine.unsubscribe]
 
   ###
   Internal publisher itself
@@ -148,17 +150,17 @@ module.exports = class Observer
 
     # if somthing go wrong
     unless _.isString(topics)
-      throw new TypeError @_publish_error_message topics, data
+      throw TypeError @_publish_error_message topics, data
     
     # get our engins
-    [publish, unsubscribe] = @_publisher_engine type
+    [_publish, _unsubscribe] = @_publisher_engine type
 
     for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
       for task in @_subscriptions[topic]
         @_publishing_inc()
-        publish.call @, topic, task, data
+        _publish.call @, topic, task, data
 
-    unsubscribe.call @
+    _unsubscribe.call @
 
     this
 
@@ -177,11 +179,12 @@ module.exports = class Observer
   Internal method for unsubscribe continious
   ###  
   _unsubscribe_resume: ->
-    console.log 'still publishing' if @_is_publishing()
-    return if @_is_publishing()
+    if @_is_publishing()
+      console?.log 'still publishing'
+      return 
     # Go through the queue and run unsubscribe again
     while task = @_unsubscribe_queue.shift?()
-      console.log "retry unsubscribe #{task}"
+      console?.log "retry unsubscribe #{task}"
       @unsubscribe.apply @, task
     
     null
@@ -193,10 +196,11 @@ module.exports = class Observer
     try 
       task[0].apply task[1], [topic].concat data
     catch err_msg
-      console.error """
+      console?.error """
                     Error on call callback we got exception:
                       topic     = |#{topic}|
                       callback  = |#{task[0]}|
+                      object    = |#{task[1]}|
                       data      = |#{data?.join ', '}|
                       error     = |#{err_msg}|
                     """   

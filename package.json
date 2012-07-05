@@ -1,6 +1,6 @@
 {
     "name": "whet.observer",
-    "version": "0.3.3",
+    "version": "0.3.5",
     "description": "A standalone Observer that actually works on node.js and browser",
     "keywords": [
         "observer",

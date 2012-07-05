@@ -50,7 +50,7 @@
   return this.require.define;
 }).call(this)({"whet.observer": function(exports, require, module) {
 /*
- * whet.observer v0.3.3
+ * whet.observer v0.3.5
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -92,7 +92,7 @@
       }
       usedTopics = {};
       if (!(_.isString(topics) || _.isFunction(callback))) {
-        throw new TypeError(this._subscribe_error_message(topics, callback, context));
+        throw TypeError(this._subscribe_error_message(topics, callback, context));
       }
       _ref1 = topics.split(" ");
       for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
@@ -127,7 +127,7 @@
       }
       context || (context = {});
       if (!_.isString(topics)) {
-        throw new TypeError(this._unsubscribe_error_message(topics, callback, context));
+        throw TypeError(this._unsubscribe_error_message(topics, callback, context));
       }
       if (this._is_publishing()) {
         this._unsubscribe_queue.push([topics, callback, context]);
@@ -215,7 +215,7 @@
     };
 
     Observer.prototype._publisher_engine = function(type) {
-      var engine_dictionary, _this;
+      var engine_dictionary, selected_engine, _this;
       _this = this;
       engine_dictionary = {
         sync: {
@@ -235,10 +235,10 @@
           }
         }
       };
-      if (engine_dictionary[type] == null) {
-        throw new TypeError("Error undefined publisher engine type |" + type + "|");
+      if ((selected_engine = engine_dictionary[type]) == null) {
+        throw TypeError("Error undefined publisher engine type |" + type + "|");
       }
-      return [engine_dictionary[type].publish, engine_dictionary[type].unsubscribe];
+      return [selected_engine.publish, selected_engine.unsubscribe];
     };
 
     /*
@@ -247,11 +247,11 @@
 
 
     Observer.prototype._publisher = function(type, topics, data) {
-      var publish, task, topic, unsubscribe, _i, _j, _len, _len1, _ref1, _ref2, _ref3;
+      var task, topic, _i, _j, _len, _len1, _publish, _ref1, _ref2, _ref3, _unsubscribe;
       if (!_.isString(topics)) {
-        throw new TypeError(this._publish_error_message(topics, data));
+        throw TypeError(this._publish_error_message(topics, data));
       }
-      _ref1 = this._publisher_engine(type), publish = _ref1[0], unsubscribe = _ref1[1];
+      _ref1 = this._publisher_engine(type), _publish = _ref1[0], _unsubscribe = _ref1[1];
       _ref2 = topics.split(" ");
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         topic = _ref2[_i];
@@ -260,11 +260,11 @@
           for (_j = 0, _len1 = _ref3.length; _j < _len1; _j++) {
             task = _ref3[_j];
             this._publishing_inc();
-            publish.call(this, topic, task, data);
+            _publish.call(this, topic, task, data);
           }
         }
       }
-      unsubscribe.call(this);
+      _unsubscribe.call(this);
       return this;
     };
 
@@ -288,13 +288,15 @@
     Observer.prototype._unsubscribe_resume = function() {
       var task, _base;
       if (this._is_publishing()) {
-        console.log('still publishing');
-      }
-      if (this._is_publishing()) {
+        if (typeof console !== "undefined" && console !== null) {
+          console.log('still publishing');
+        }
         return;
       }
       while (task = typeof (_base = this._unsubscribe_queue).shift === "function" ? _base.shift() : void 0) {
-        console.log("retry unsubscribe " + task);
+        if (typeof console !== "undefined" && console !== null) {
+          console.log("retry unsubscribe " + task);
+        }
         this.unsubscribe.apply(this, task);
       }
       return null;
@@ -309,7 +311,9 @@
       try {
         task[0].apply(task[1], [topic].concat(data));
       } catch (err_msg) {
-        console.error("Error on call callback we got exception:\n  topic     = |" + topic + "|\n  callback  = |" + task[0] + "|\n  data      = |" + (data != null ? data.join(', ') : void 0) + "|\n  error     = |" + err_msg + "|");
+        if (typeof console !== "undefined" && console !== null) {
+          console.error("Error on call callback we got exception:\n  topic     = |" + topic + "|\n  callback  = |" + task[0] + "|\n  object    = |" + task[1] + "|\n  data      = |" + (data != null ? data.join(', ') : void 0) + "|\n  error     = |" + err_msg + "|");
+        }
       } finally {
         this._publishing_dec();
       }

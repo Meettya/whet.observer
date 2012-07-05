@@ -1,3 +1,8 @@
+## 0.3.5 / 2012-07-05 01:40 PM
+
+  - Add 'Install' section to Readme
+  - Small fixs
+
 ## 0.3.3 / 2012-07-05 09:07 AM
   
   - Add #publishAsync method - at now its possible to use observer in asynchronously manner

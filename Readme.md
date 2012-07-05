@@ -6,7 +6,7 @@ A standalone Observer that actually works on node.js, adapted from Publish/Subsc
 
 Oh! Yes, it works in browser too, just connect undercore above. See test_browser folder for detail or [jsfiddle example](http://jsfiddle.net/Meettya/r5XkG/embedded/result/)
 
-And last, but not least - it have asynchronous publishing method #publishAsync
+And last, but not least - it have asynchronous publishing method #publishAsync()
 
 ## Description:
 
@@ -18,6 +18,9 @@ Also its allow you to operate to multiple topics just by separating the topic na
 
 See the examples below or test files.
 
+## Install:
+
+    npm install whet.observer
 
 ## Usage:
 
