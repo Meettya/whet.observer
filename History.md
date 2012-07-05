@@ -1,8 +1,14 @@
+## 0.3.3 / 2012-07-05 09:07 AM
+  
+  - Add #publishAsync method - at now its possible to use observer in asynchronously manner
+  - Add tests for #publishAsync
+  - Change test path to (/src) for fast development tests. The browser tests still use compiled .js version
+  - Some small fix
+
 ## 0.2.9 / 2012-06-30 10:51 AM
 
   - Change test suite to use one version for node and browser
   - Small fix at package defs
-
 
 ## 0.2.7 / 2012-06-24 05:27 PM
 

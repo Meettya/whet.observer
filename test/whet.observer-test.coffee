@@ -68,7 +68,6 @@ describe 'Observer:', ->
     it 'should fired up event with void call', ->
       observer_obj.subscribe('callback_simple', callback_simple)
       observer_obj.publish('callback_simple')
-      console.log result_simple
       result_simple.should.be.true
 
     it 'should fired up event with args call', ->
@@ -164,7 +163,19 @@ describe 'Observer:', ->
       observer_obj.subscribe 'callback_channel', args_obj.run, args_obj
       observer_obj.subscribe 'callback_channel', void_obj.run, void_obj
       observer_obj.publishAsync 'callback_channel', 10, 32
-      
+
+    it 'should work truly async', (done) ->
+
+      temp_var = 0
+
+      args_cb = ( args... ) ->
+        callback_with_args.apply @, args
+        (result_with_args.should.be.equal 12 ) and ( temp_var.should.to.be.equal 10 )
+        done()
+
+      observer_obj.subscribe 'callback_with_args', args_cb
+      observer_obj.publishAsync 'callback_with_args', 5, 7
+      temp_var = 10    
 
   describe '#unsubscribe()', ->
     

@@ -90,7 +90,6 @@ Its so wrong, but its OK for test
       it('should fired up event with void call', function() {
         observer_obj.subscribe('callback_simple', callback_simple);
         observer_obj.publish('callback_simple');
-        console.log(result_simple);
         return result_simple.should.be["true"];
       });
       it('should fired up event with args call', function() {
@@ -162,7 +161,7 @@ Its so wrong, but its OK for test
         observer_obj.subscribe('callback_with_args', args_cb);
         return observer_obj.publishAsync('callback_with_args', 5, 7);
       });
-      return it('should fired up some different events on one channel', function(done) {
+      it('should fired up some different events on one channel', function(done) {
         var args_obj, void_obj, watchdog;
         void_obj = {
           result: false,
@@ -190,6 +189,20 @@ Its so wrong, but its OK for test
         observer_obj.subscribe('callback_channel', args_obj.run, args_obj);
         observer_obj.subscribe('callback_channel', void_obj.run, void_obj);
         return observer_obj.publishAsync('callback_channel', 10, 32);
+      });
+      return it('should work truly async', function(done) {
+        var args_cb, temp_var;
+        temp_var = 0;
+        args_cb = function() {
+          var args;
+          args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          callback_with_args.apply(this, args);
+          (result_with_args.should.be.equal(12)) && (temp_var.should.to.be.equal(10));
+          return done();
+        };
+        observer_obj.subscribe('callback_with_args', args_cb);
+        observer_obj.publishAsync('callback_with_args', 5, 7);
+        return temp_var = 10;
       });
     });
     return describe('#unsubscribe()', function() {

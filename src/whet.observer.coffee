@@ -1,5 +1,5 @@
 ###
- * whet.observer v0.2.9
+ * whet.observer v0.3.3
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -83,72 +83,17 @@ module.exports = class Observer
   - topics (String): the subscription topic(s) to publish to
   - data: any data (in any format) you wish to give to the subscribers
   ###
- 
   publish: (topics, data...) ->
-		
-    # if somthing go wrong
-    unless _.isString(topics)
-      throw new TypeError @_publish_error_message topics, data
-        
-    for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
-      for task in @_subscriptions[topic]
-        @_publishing_inc()
-        @_publish_firing topic, task, data
+    @_publisher 'sync', topics, data
 
-    @_unsubscribe_resume()
-    this
-  
-  publishAsync: (topics, data...) ->
-
-    unless _.isString topics
-      throw new TypeError @_publish_error_message topics, data
-        
-    for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
-      for task in @_subscriptions[topic]
-        @_publishing_inc()
-        do (topic, task, data) =>
-          setTimeout ( => @_publish_firing topic, task, data ), 0
-
-    setTimeout ( => @_unsubscribe_resume() ), 0
-    this
-  
   ###
-  publish: (topics, data...) ->
-    @_publish_engine 'sync', topics, data
-
-  publishAsync: (topics, data...) ->
-    @_publish_engine 'async', topics, data
-
-
-  _publish_engine: (type, topics, data) ->
-
-    # we are need to have reference to global object
-    _this = @
-
-    engine = 
-      sync :
-        publish : (topic, task, data) -> 
-          #console.log "sync publish"
-          _this._publish_firing topic, task, data
-        unsubscribe : -> @_unsubscribe_resume()
-      async :
-        publish : (topic, task, data_as_array) -> setTimeout ( => @_publish_firing topic, task, data ), 0
-        unsubscribe : -> setTimeout ( => @_unsubscribe_resume() ), 0
-
-    unless engine[type]?
-      throw new TypeError "undefined engine type |#{type}|"
-
-    unless _.isString topics
-      throw new TypeError @_publish_error_message topics, data_as_array
-        
-    for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
-      for task in @_subscriptions[topic]
-        @_publishing_inc()
-        engine[type].publish topic, task, data
-
-    engine[type].unsubscribe()
-    this
+  publishAsync( topics[, data] )
+  - topics (String): the subscription topic(s) to publish to
+  - data: any data (in any format) you wish to give to the subscribers
+  Add tasks to queue for asynchronous executions
   ###
+  publishAsync: (topics, data...) ->
+    @_publisher 'async', topics, data
 
   ###
   !!!! Internal methods from now !!!!
@@ -172,6 +117,52 @@ module.exports = class Observer
                   """  
     @_publishing_counter -= 1
     null
+
+    ###
+  Internal method for different events types definitions
+  returns: [publish, unsubscribe] or throw exception on invalid arguments
+  ###
+  _publisher_engine: (type) ->
+    # we are need to have reference to global object
+    _this = @
+
+    engine_dictionary = 
+      sync :
+        publish : _this._publish_firing
+        unsubscribe : _this._unsubscribe_resume
+      async :
+        publish : (topic, task, data) -> setTimeout ( -> _this._publish_firing topic, task, data ), 0
+        unsubscribe : -> setTimeout ( -> _this._unsubscribe_resume() ), 0
+
+    unless engine_dictionary[type]?
+      throw new TypeError """
+                            Error undefined publisher engine type |#{type}|
+                          """  
+
+    [engine_dictionary[type].publish, engine_dictionary[type].unsubscribe]
+
+  ###
+  Internal publisher itself
+  ###
+  _publisher: (type, topics, data) ->
+
+    # if somthing go wrong
+    unless _.isString(topics)
+      throw new TypeError @_publish_error_message topics, data
+    
+    # get our engins
+    [publish, unsubscribe] = @_publisher_engine type
+
+    for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
+      for task in @_subscriptions[topic]
+        @_publishing_inc()
+        publish.call @, topic, task, data
+
+    unsubscribe.call @
+
+    this
+
+
 
   ###
   Internal method for unsubscribe args modificator if method called with handler

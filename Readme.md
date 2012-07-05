@@ -6,6 +6,7 @@ A standalone Observer that actually works on node.js, adapted from Publish/Subsc
 
 Oh! Yes, it works in browser too, just connect undercore above. See test_browser folder for detail or [jsfiddle example](http://jsfiddle.net/Meettya/r5XkG/embedded/result/)
 
+And last, but not least - it have asynchronous publishing method #publishAsync
 
 ## Description:
 
@@ -93,6 +94,9 @@ in whatever way is appropriate for your application
     
     observer_obj.publish("foo bar", "This is some data")
 
+Or you may send task to queue for asynchronous execution (see ./tests for more examples)
+
+    observer_obj.publishAsync("foo bar", "This is some data") 
 
 ## General Notes
 
@@ -109,7 +113,7 @@ or multiple topics (separated by a space).
 
 ### Callback Context:
 When a callback function is invoked, it is called in the context of blank object.
-This means that this === {} inside of your function.
+This means that `` this === {} `` inside of your function.
 You may use you own object instead, passed it as context object.
 
 ### Handle:
