@@ -26,7 +26,7 @@ module.exports = class Observer
    - callback (Function): function to be called when the given topic(s) is published to
    - context (Object): an object to call the function on
   returns: { "topics": topics, "callback": callback } or throw exception on invalid arguments
-  ###	
+  ### 
   subscribe: (topics, callback, context = {}) ->
 
     # Make sure that each argument is valid
@@ -47,7 +47,7 @@ module.exports = class Observer
   ###
   unsubscribe: (topics, callback, context) ->
  
-  	# If the handler was used we are need to parse args
+    # If the handler was used we are need to parse args
     if topics.topics
       [topics, callback, context] = @_unsubscribeHandlerParser topics, callback, context
       
