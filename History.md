@@ -1,3 +1,8 @@
+## 0.3.7 / 2012-07-07 01:51 PM
+
+  - Refactored all to improve readability
+
+
 ## 0.3.5 / 2012-07-05 01:40 PM
 
   - Add 'Install' section to Readme

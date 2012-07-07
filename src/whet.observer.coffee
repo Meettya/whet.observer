@@ -1,5 +1,5 @@
 ###
- * whet.observer v0.3.5
+ * whet.observer v0.3.7
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -16,9 +16,9 @@ _ = @_ ? require 'underscore'
 module.exports = class Observer  
   
   constructor: -> 
-    @_subscriptions       = {}
-    @_publishing_counter  = 0
-    @_unsubscribe_queue   = []
+    @_subscriptions_       = {}
+    @_publishing_counter_  = 0
+    @_unsubscribe_queue_   = []
   
   ###
   subscribe( topics, callback[, context] )
@@ -28,16 +28,14 @@ module.exports = class Observer
   returns: { "topics": topics, "callback": callback } or throw exception on invalid arguments
   ###	
   subscribe: (topics, callback, context = {}) ->
-    usedTopics = {}
 
     # Make sure that each argument is valid
     unless _.isString(topics) or _.isFunction(callback)
-      throw TypeError @_subscribe_error_message topics, callback, context
-    
-    for topic in topics.split(" ") when topic isnt '' or not usedTopics[topic]
-      usedTopics[topic] = true
-      @_subscriptions[topic] or= []
-      @_subscriptions[topic].push [callback, context]
+      throw @_subscribeErrorMessage topics, callback, context
+
+    for topic in @_topicsToArraySplitter topics
+      @_subscriptions_[topic] or= []
+      @_subscriptions_[topic].push [callback, context]     
       
     { topics: topics, callback: callback, context:context }
   
@@ -48,33 +46,31 @@ module.exports = class Observer
   - context (Object): object that was used as the context in the #subscribe() call.
   ###
   unsubscribe: (topics, callback, context) ->
-    usedTopics = {}
  
   	# If the handler was used we are need to parse args
     if topics.topics
-      [topics, callback, context] = @_unsubscribe_handler_parser topics, callback, context
+      [topics, callback, context] = @_unsubscribeHandlerParser topics, callback, context
       
     context or= {}
  
     # if somthing go wrong
     unless _.isString(topics)
-      throw TypeError @_unsubscribe_error_message topics, callback, context
+      throw @_unsubscribeErrorMessage topics, callback, context
     
     # If someone is trying to unsubscribe while we're publishing, put it off until publishing is done
-    if @_is_publishing()
-      @_unsubscribe_queue.push [topics, callback, context]
+    if @_isPublishing()
+      @_unsubscribe_queue_.push [topics, callback, context]
       return this
     
     # Do unsubscribe on all topics
-    for topic in topics.split(" ") when topic isnt '' or not usedTopics[topic]
-      usedTopics[topic] = true
+    for topic in @_topicsToArraySplitter topics
       
       if _.isFunction(callback)
-        for task,idx in @_subscriptions[topic] when _.isEqual task, [callback, context]
-          @_subscriptions[topic].splice idx, 1
+        for task,idx in @_subscriptions_[topic] when _.isEqual task, [callback, context]
+          @_subscriptions_[topic].splice idx, 1
       else
         # If no callback is given, then remove all subscriptions to this topic
-        delete @_subscriptions[topic]
+        delete @_subscriptions_[topic]
          
     this
 
@@ -102,44 +98,45 @@ module.exports = class Observer
   ###
 
   ###
-  Self-incapsulate @_publishing_counter properties to internal methods
+  Self-incapsulate @_publishing_counter_ properties to internal methods
   ###
-  _is_publishing: ->
-    !!@_publishing_counter
+  _isPublishing: ->
+    !!@_publishing_counter_
 
-  _publishing_inc: ->
-    @_publishing_counter += 1
+  _publishingInc: ->
+    @_publishing_counter_ += 1
     null
 
-  _publishing_dec: ->
-    unless @_is_publishing
+  _publishingDec: ->
+    unless @_isPublishing
       throw Error """
                     Error on decrement publishing counter
-                      @_publishing_counter is |#{@_publishing_counter}|
+                      @_publishing_counter_ is |#{@_publishing_counter_}|
                   """  
-    @_publishing_counter -= 1
+    @_publishing_counter_ -= 1
     null
 
-    ###
+  ###
   Internal method for different events types definitions
   returns: [publish, unsubscribe] or throw exception on invalid arguments
   ###
-  _publisher_engine: (type) ->
+  _publisherEngine: (type) ->
     # we are need to have reference to global object
-    _this = @
+    self = @
 
     engine_dictionary = 
       sync :
-        publish : _this._publish_firing
-        unsubscribe : _this._unsubscribe_resume
+        publish : self._publishFiring
+        unsubscribe : self._unsubscribeResume
       async :
-        publish : (topic, task, data) -> setTimeout ( -> _this._publish_firing topic, task, data ), 0
-        unsubscribe : -> setTimeout ( -> _this._unsubscribe_resume() ), 0
+        publish : (topic, task, data) -> setTimeout ( -> self._publishFiring topic, task, data ), 0
+        unsubscribe : -> setTimeout ( -> self._unsubscribeResume() ), 0
 
-    unless (selected_engine = engine_dictionary[type])?
+    selected_engine = engine_dictionary[type]
+    unless selected_engine?
       throw TypeError """
-                            Error undefined publisher engine type |#{type}|
-                          """  
+                      Error undefined publisher engine type |#{type}|
+                      """  
 
     [selected_engine.publish, selected_engine.unsubscribe]
 
@@ -150,14 +147,14 @@ module.exports = class Observer
 
     # if somthing go wrong
     unless _.isString(topics)
-      throw TypeError @_publish_error_message topics, data
+      throw @_publishErrorMessage topics, data
     
     # get our engins
-    [_publish, _unsubscribe] = @_publisher_engine type
+    [_publish, _unsubscribe] = @_publisherEngine type
 
-    for topic in topics.split(" ") when topic isnt '' and @_subscriptions[topic]
-      for task in @_subscriptions[topic]
-        @_publishing_inc()
+    for topic in @_topicsToArraySplitter(topics, false) when @_subscriptions_[topic]
+      for task in @_subscriptions_[topic]
+        @_publishingInc()
         _publish.call @, topic, task, data
 
     _unsubscribe.call @
@@ -165,11 +162,22 @@ module.exports = class Observer
     this
 
 
+  ###
+  Internal method for splitting topics string to array.
+  May skip duplicate (it used for un/subscription )
+  ###
+  _topicsToArraySplitter: (topics, skip_duplicate = true) ->
+    used_topics = {}
+
+    for topic in topics.split(' ') when topic isnt ''
+      continue if skip_duplicate and used_topics[topic]
+      used_topics[topic] = true
+      topic
 
   ###
   Internal method for unsubscribe args modificator if method called with handler
   ###
-  _unsubscribe_handler_parser: (topics, callback, context) ->
+  _unsubscribeHandlerParser: (topics, callback, context) ->
     callback  or= topics.callback
     context   or= topics.context
     topics    = topics.topics
@@ -178,12 +186,12 @@ module.exports = class Observer
   ###
   Internal method for unsubscribe continious
   ###  
-  _unsubscribe_resume: ->
-    if @_is_publishing()
+  _unsubscribeResume: ->
+    if @_isPublishing()
       console?.log 'still publishing'
       return 
     # Go through the queue and run unsubscribe again
-    while task = @_unsubscribe_queue.shift?()
+    while task = @_unsubscribe_queue_.shift?()
       console?.log "retry unsubscribe #{task}"
       @unsubscribe.apply @, task
     
@@ -192,50 +200,61 @@ module.exports = class Observer
   ###
   Internal method for publish firing
   ###
-  _publish_firing: (topic, task, data) ->
+  _publishFiring: (topic, task, data) ->
     try 
       task[0].apply task[1], [topic].concat data
-    catch err_msg
+    catch err
       console?.error """
                     Error on call callback we got exception:
                       topic     = |#{topic}|
                       callback  = |#{task[0]}|
                       object    = |#{task[1]}|
                       data      = |#{data?.join ', '}|
-                      error     = |#{err_msg}|
+                      error     = |#{err}|
                     """   
     finally
-      @_publishing_dec()
+      @_publishingDec()
 
     null
 
   ###
   Internal method for publish error message constructor
   ###
-  _publish_error_message: (topics, data) ->
-    """
-    Error on call |publish| used non-string topics:
-      topics  = |#{topics}|
-      data    = |#{data?.join ', '}|
-    """
+  _publishErrorMessage: (topics, data) ->
+    { 
+      name : "TypeError"
+      message : """
+                Error on call |publish| used non-string topics:
+                  topics  = |#{topics}|
+                  data    = |#{data?.join ', '}|
+                """
+    }
 
   ###
   Internal method for unsubscribe error message constructor
   ###
-  _unsubscribe_error_message: (topics, callback, context) ->
-    """
-    Error on call |unsubscribe| used non-string topics:
-      topics    = |#{topics}|
-      callback  = |#{callback}|
-      context   = |#{context}|
-    """
+  _unsubscribeErrorMessage: (topics, callback, context) ->
+    {
+      name : "TypeError"
+      message : """
+                Error on call |unsubscribe| used non-string topics:
+                  topics    = |#{topics}|
+                  callback  = |#{callback}|
+                  context   = |#{context}|
+                """
+    }
+    
   ###
   Internal method for subscribe error message constructor
   ###
-  _subscribe_error_message: (topics, callback, context) ->    
-    """
-    Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:
-      topics    = |#{topics}|
-      callback  = |#{callback}|
-      context   = |#{context}|
-    """
+  _subscribeErrorMessage: (topics, callback, context) ->
+    {
+      name : "TypeError"
+      message : """
+                Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:
+                  topics    = |#{topics}|
+                  callback  = |#{callback}|
+                  context   = |#{context}|
+                """
+    }
+    

@@ -75,9 +75,13 @@ Its so wrong, but its OK for test
         handle = observer_obj.subscribe('callback_simple', callback_simple);
         return handle.should.be.deep.equal(callback_simple_obj);
       });
-      return it('should keep callback unfired on register', function() {
+      it('should keep callback unfired on register', function() {
         observer_obj.subscribe('callback_simple', callback_simple);
         return result_simple.should.not.be["true"];
+      });
+      return it('should skip duplicate topic at register', function() {
+        observer_obj.subscribe('callback_simple callback_simple', callback_simple);
+        return observer_obj._subscriptions_['callback_simple'].length.should.be.equal(1);
       });
     });
     describe('#publish()', function() {
@@ -270,7 +274,7 @@ Its so wrong, but its OK for test
       it('should prevent unsubscribe while publishing ', function() {
         var handle, tmp, _ref;
         handle = observer_obj.subscribe('callback_channel', callback_simple);
-        observer_obj._publishing_inc();
+        observer_obj._publishingInc();
         observer_obj.unsubscribe(handle);
         /*
               This hack needed to supress error logger from Observer,
@@ -285,7 +289,7 @@ Its so wrong, but its OK for test
       return it('should resume unsubscribing after publishing ', function() {
         var handle, tmp, _ref;
         handle = observer_obj.subscribe('callback_channel', callback_simple);
-        observer_obj._publishing_inc();
+        observer_obj._publishingInc();
         observer_obj.unsubscribe(handle);
         /*
               This hack needed to supress error logger from Observer,
@@ -293,7 +297,7 @@ Its so wrong, but its OK for test
         */
 
         _ref = [console.log, function() {}], tmp = _ref[0], console.log = _ref[1];
-        observer_obj._publishing_dec();
+        observer_obj._publishingDec();
         observer_obj.publish('callback_channel', 'test');
         console.log = tmp;
         result_simple = false;

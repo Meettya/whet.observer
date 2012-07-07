@@ -58,7 +58,12 @@ describe 'Observer:', ->
     it 'should keep callback unfired on register', ->
       observer_obj.subscribe('callback_simple', callback_simple)
       result_simple.should.not.be.true
-  
+ 
+    it 'should skip duplicate topic at register', ->
+      observer_obj.subscribe('callback_simple callback_simple', callback_simple)
+      # yap, its durty but it only for test
+      observer_obj._subscriptions_['callback_simple'].length.should.be.equal 1
+
   describe '#publish()', ->
 
     it 'should return Error on non-string topic args', ->
@@ -237,7 +242,7 @@ describe 'Observer:', ->
     it 'should prevent unsubscribe while publishing ', ->
       handle = observer_obj.subscribe('callback_channel', callback_simple)
       # its internal thing, but we are must use it to simulate situation
-      observer_obj._publishing_inc()
+      observer_obj._publishingInc()
       observer_obj.unsubscribe(handle)
       ###
       This hack needed to supress error logger from Observer,
@@ -252,7 +257,7 @@ describe 'Observer:', ->
     it 'should resume unsubscribing after publishing ', ->
       handle = observer_obj.subscribe('callback_channel', callback_simple)
       # its internal thing, but we are must use it to simulate situation
-      observer_obj._publishing_inc()
+      observer_obj._publishingInc()
       observer_obj.unsubscribe(handle)
       ###
       This hack needed to supress error logger from Observer,
@@ -260,7 +265,7 @@ describe 'Observer:', ->
       ###
       [tmp, console.log] = [console.log, ->]
       # internal publish counter 
-      observer_obj._publishing_dec()
+      observer_obj._publishingDec()
       observer_obj.publish('callback_channel', 'test') # must fired up event
 
       # restore as normal to correct mocha behaviour

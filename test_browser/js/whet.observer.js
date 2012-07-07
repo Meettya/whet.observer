@@ -50,7 +50,7 @@
   return this.require.define;
 }).call(this)({"whet.observer": function(exports, require, module) {
 /*
- * whet.observer v0.3.5
+ * whet.observer v0.3.7
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -71,9 +71,9 @@
   module.exports = Observer = (function() {
 
     function Observer() {
-      this._subscriptions = {};
-      this._publishing_counter = 0;
-      this._unsubscribe_queue = [];
+      this._subscriptions_ = {};
+      this._publishing_counter_ = 0;
+      this._unsubscribe_queue_ = [];
     }
 
     /*
@@ -86,23 +86,18 @@
 
 
     Observer.prototype.subscribe = function(topics, callback, context) {
-      var topic, usedTopics, _base, _i, _len, _ref1;
+      var topic, _base, _i, _len, _ref1;
       if (context == null) {
         context = {};
       }
-      usedTopics = {};
       if (!(_.isString(topics) || _.isFunction(callback))) {
-        throw TypeError(this._subscribe_error_message(topics, callback, context));
+        throw this._subscribeErrorMessage(topics, callback, context);
       }
-      _ref1 = topics.split(" ");
+      _ref1 = this._topicsToArraySplitter(topics);
       for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
         topic = _ref1[_i];
-        if (!(topic !== '' || !usedTopics[topic])) {
-          continue;
-        }
-        usedTopics[topic] = true;
-        (_base = this._subscriptions)[topic] || (_base[topic] = []);
-        this._subscriptions[topic].push([callback, context]);
+        (_base = this._subscriptions_)[topic] || (_base[topic] = []);
+        this._subscriptions_[topic].push([callback, context]);
       }
       return {
         topics: topics,
@@ -120,36 +115,31 @@
 
 
     Observer.prototype.unsubscribe = function(topics, callback, context) {
-      var idx, task, topic, usedTopics, _i, _j, _len, _len1, _ref1, _ref2, _ref3;
-      usedTopics = {};
+      var idx, task, topic, _i, _j, _len, _len1, _ref1, _ref2, _ref3;
       if (topics.topics) {
-        _ref1 = this._unsubscribe_handler_parser(topics, callback, context), topics = _ref1[0], callback = _ref1[1], context = _ref1[2];
+        _ref1 = this._unsubscribeHandlerParser(topics, callback, context), topics = _ref1[0], callback = _ref1[1], context = _ref1[2];
       }
       context || (context = {});
       if (!_.isString(topics)) {
-        throw TypeError(this._unsubscribe_error_message(topics, callback, context));
+        throw this._unsubscribeErrorMessage(topics, callback, context);
       }
-      if (this._is_publishing()) {
-        this._unsubscribe_queue.push([topics, callback, context]);
+      if (this._isPublishing()) {
+        this._unsubscribe_queue_.push([topics, callback, context]);
         return this;
       }
-      _ref2 = topics.split(" ");
+      _ref2 = this._topicsToArraySplitter(topics);
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         topic = _ref2[_i];
-        if (!(topic !== '' || !usedTopics[topic])) {
-          continue;
-        }
-        usedTopics[topic] = true;
         if (_.isFunction(callback)) {
-          _ref3 = this._subscriptions[topic];
+          _ref3 = this._subscriptions_[topic];
           for (idx = _j = 0, _len1 = _ref3.length; _j < _len1; idx = ++_j) {
             task = _ref3[idx];
             if (_.isEqual(task, [callback, context])) {
-              this._subscriptions[topic].splice(idx, 1);
+              this._subscriptions_[topic].splice(idx, 1);
             }
           }
         } else {
-          delete this._subscriptions[topic];
+          delete this._subscriptions_[topic];
         }
       }
       return this;
@@ -188,54 +178,56 @@
 
 
     /*
-      Self-incapsulate @_publishing_counter properties to internal methods
+      Self-incapsulate @_publishing_counter_ properties to internal methods
     */
 
 
-    Observer.prototype._is_publishing = function() {
-      return !!this._publishing_counter;
+    Observer.prototype._isPublishing = function() {
+      return !!this._publishing_counter_;
     };
 
-    Observer.prototype._publishing_inc = function() {
-      this._publishing_counter += 1;
+    Observer.prototype._publishingInc = function() {
+      this._publishing_counter_ += 1;
       return null;
     };
 
-    Observer.prototype._publishing_dec = function() {
-      if (!this._is_publishing) {
-        throw Error("Error on decrement publishing counter\n  @_publishing_counter is |" + this._publishing_counter + "|");
+    Observer.prototype._publishingDec = function() {
+      if (!this._isPublishing) {
+        throw Error("Error on decrement publishing counter\n  @_publishing_counter_ is |" + this._publishing_counter_ + "|");
       }
-      this._publishing_counter -= 1;
+      this._publishing_counter_ -= 1;
       return null;
-      /*
-        Internal method for different events types definitions
-        returns: [publish, unsubscribe] or throw exception on invalid arguments
-      */
-
     };
 
-    Observer.prototype._publisher_engine = function(type) {
-      var engine_dictionary, selected_engine, _this;
-      _this = this;
+    /*
+      Internal method for different events types definitions
+      returns: [publish, unsubscribe] or throw exception on invalid arguments
+    */
+
+
+    Observer.prototype._publisherEngine = function(type) {
+      var engine_dictionary, selected_engine, self;
+      self = this;
       engine_dictionary = {
         sync: {
-          publish: _this._publish_firing,
-          unsubscribe: _this._unsubscribe_resume
+          publish: self._publishFiring,
+          unsubscribe: self._unsubscribeResume
         },
         async: {
           publish: function(topic, task, data) {
             return setTimeout((function() {
-              return _this._publish_firing(topic, task, data);
+              return self._publishFiring(topic, task, data);
             }), 0);
           },
           unsubscribe: function() {
             return setTimeout((function() {
-              return _this._unsubscribe_resume();
+              return self._unsubscribeResume();
             }), 0);
           }
         }
       };
-      if ((selected_engine = engine_dictionary[type]) == null) {
+      selected_engine = engine_dictionary[type];
+      if (selected_engine == null) {
         throw TypeError("Error undefined publisher engine type |" + type + "|");
       }
       return [selected_engine.publish, selected_engine.unsubscribe];
@@ -249,17 +241,17 @@
     Observer.prototype._publisher = function(type, topics, data) {
       var task, topic, _i, _j, _len, _len1, _publish, _ref1, _ref2, _ref3, _unsubscribe;
       if (!_.isString(topics)) {
-        throw TypeError(this._publish_error_message(topics, data));
+        throw this._publishErrorMessage(topics, data);
       }
-      _ref1 = this._publisher_engine(type), _publish = _ref1[0], _unsubscribe = _ref1[1];
-      _ref2 = topics.split(" ");
+      _ref1 = this._publisherEngine(type), _publish = _ref1[0], _unsubscribe = _ref1[1];
+      _ref2 = this._topicsToArraySplitter(topics, false);
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         topic = _ref2[_i];
-        if (topic !== '' && this._subscriptions[topic]) {
-          _ref3 = this._subscriptions[topic];
+        if (this._subscriptions_[topic]) {
+          _ref3 = this._subscriptions_[topic];
           for (_j = 0, _len1 = _ref3.length; _j < _len1; _j++) {
             task = _ref3[_j];
-            this._publishing_inc();
+            this._publishingInc();
             _publish.call(this, topic, task, data);
           }
         }
@@ -269,11 +261,39 @@
     };
 
     /*
+      Internal method for splitting topics string to array.
+      May skip duplicate (it used for un/subscription )
+    */
+
+
+    Observer.prototype._topicsToArraySplitter = function(topics, skip_duplicate) {
+      var topic, used_topics, _i, _len, _ref1, _results;
+      if (skip_duplicate == null) {
+        skip_duplicate = true;
+      }
+      used_topics = {};
+      _ref1 = topics.split(' ');
+      _results = [];
+      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+        topic = _ref1[_i];
+        if (!(topic !== '')) {
+          continue;
+        }
+        if (skip_duplicate && used_topics[topic]) {
+          continue;
+        }
+        used_topics[topic] = true;
+        _results.push(topic);
+      }
+      return _results;
+    };
+
+    /*
       Internal method for unsubscribe args modificator if method called with handler
     */
 
 
-    Observer.prototype._unsubscribe_handler_parser = function(topics, callback, context) {
+    Observer.prototype._unsubscribeHandlerParser = function(topics, callback, context) {
       callback || (callback = topics.callback);
       context || (context = topics.context);
       topics = topics.topics;
@@ -285,15 +305,15 @@
     */
 
 
-    Observer.prototype._unsubscribe_resume = function() {
+    Observer.prototype._unsubscribeResume = function() {
       var task, _base;
-      if (this._is_publishing()) {
+      if (this._isPublishing()) {
         if (typeof console !== "undefined" && console !== null) {
           console.log('still publishing');
         }
         return;
       }
-      while (task = typeof (_base = this._unsubscribe_queue).shift === "function" ? _base.shift() : void 0) {
+      while (task = typeof (_base = this._unsubscribe_queue_).shift === "function" ? _base.shift() : void 0) {
         if (typeof console !== "undefined" && console !== null) {
           console.log("retry unsubscribe " + task);
         }
@@ -307,15 +327,15 @@
     */
 
 
-    Observer.prototype._publish_firing = function(topic, task, data) {
+    Observer.prototype._publishFiring = function(topic, task, data) {
       try {
         task[0].apply(task[1], [topic].concat(data));
-      } catch (err_msg) {
+      } catch (err) {
         if (typeof console !== "undefined" && console !== null) {
-          console.error("Error on call callback we got exception:\n  topic     = |" + topic + "|\n  callback  = |" + task[0] + "|\n  object    = |" + task[1] + "|\n  data      = |" + (data != null ? data.join(', ') : void 0) + "|\n  error     = |" + err_msg + "|");
+          console.error("Error on call callback we got exception:\n  topic     = |" + topic + "|\n  callback  = |" + task[0] + "|\n  object    = |" + task[1] + "|\n  data      = |" + (data != null ? data.join(', ') : void 0) + "|\n  error     = |" + err + "|");
         }
       } finally {
-        this._publishing_dec();
+        this._publishingDec();
       }
       return null;
     };
@@ -325,8 +345,11 @@
     */
 
 
-    Observer.prototype._publish_error_message = function(topics, data) {
-      return "Error on call |publish| used non-string topics:\n  topics  = |" + topics + "|\n  data    = |" + (data != null ? data.join(', ') : void 0) + "|";
+    Observer.prototype._publishErrorMessage = function(topics, data) {
+      return {
+        name: "TypeError",
+        message: "Error on call |publish| used non-string topics:\n  topics  = |" + topics + "|\n  data    = |" + (data != null ? data.join(', ') : void 0) + "|"
+      };
     };
 
     /*
@@ -334,8 +357,11 @@
     */
 
 
-    Observer.prototype._unsubscribe_error_message = function(topics, callback, context) {
-      return "Error on call |unsubscribe| used non-string topics:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|";
+    Observer.prototype._unsubscribeErrorMessage = function(topics, callback, context) {
+      return {
+        name: "TypeError",
+        message: "Error on call |unsubscribe| used non-string topics:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|"
+      };
     };
 
     /*
@@ -343,8 +369,11 @@
     */
 
 
-    Observer.prototype._subscribe_error_message = function(topics, callback, context) {
-      return "Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|";
+    Observer.prototype._subscribeErrorMessage = function(topics, callback, context) {
+      return {
+        name: "TypeError",
+        message: "Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|"
+      };
     };
 
     return Observer;
