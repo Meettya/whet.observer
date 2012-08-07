@@ -50,7 +50,7 @@
   return this.require.define;
 }).call(this)({"whet.observer": function(exports, require, module) {
 /*
- * whet.observer v0.3.7
+ * whet.observer v0.4.1
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -435,18 +435,17 @@
 
 
     Observer.prototype._publishFiring = function(topic, task, data) {
-      var err_obj;
+      var _ref1;
       try {
         task[0].apply(task[1], [topic].concat(data));
       } catch (err) {
-        if (task[2] != null) {
-          err_obj = {
+        if ((_ref1 = task[2]) != null) {
+          _ref1.call(task[1], err, {
             topic: topic,
             callback: task[0],
             object: task[1],
             data: data
-          };
-          task[2].call(task[1], err, err_obj);
+          });
         }
         if (this._observer_verbose_level_ >= ERROR) {
           if (typeof console !== "undefined" && console !== null) {

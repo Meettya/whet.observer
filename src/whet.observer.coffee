@@ -1,5 +1,5 @@
 ###
- * whet.observer v0.3.7
+ * whet.observer v0.4.1
  * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
  * https://github.com/Meettya/whet.observer
  *
@@ -276,14 +276,12 @@ module.exports = class Observer
       task[0].apply task[1], [topic].concat data
     catch err
       # try to wakeup watchdog
-      if task[2]?
-        err_obj = 
-          topic     : topic
-          callback  : task[0]
-          object    : task[1]
-          data      : data
+      task[2]?.call task[1], err,
+                                  topic     : topic
+                                  callback  : task[0]
+                                  object    : task[1]
+                                  data      : data
 
-        task[2].call task[1], err, err_obj
       # or just put message to log
       if @_observer_verbose_level_ >= ERROR
         console?.error """
