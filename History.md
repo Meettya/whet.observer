@@ -3,6 +3,7 @@
   - Add #subscribeGuarded() - now we are MAY to manage on error at publishing (see README)
   - Add 'verbose' option to constructor - if you want some info from observer (see README)
   - Add #publishSync() as alias to #publish() method - if you like significant names
+  - Add standalone examples
   - Refactored some things
 
 ## 0.3.7 / 2012-07-07 01:51 PM
