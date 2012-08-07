@@ -8,6 +8,8 @@ Oh! Yes, it works in browser too, just connect undercore above. See test_browser
 
 And last, but not least - it have asynchronous publishing method #publishAsync()
 
+Surprise! At now we have a dog! Its name "watchdog" and its lives in #subscribeGuarded(). Its watch on callbacks when they firing. See Readme/tests/example for more.
+
 ## Description:
 
 This script implement Observer pattern in Object Oriented-manner.
@@ -31,7 +33,11 @@ At first you must create Observer object to interact with it
     
     Observer = require 'whet.observer'
     observer_obj = new Observer
-    
+
+Constructor have some options on create
+
+    verbose : ['debug'|'warning'|'error'|'silent'] # verbose levels placed by decrementing
+
 ### Subscribing:
 
 Subscribe to a single topic called 'foo'
@@ -59,6 +65,30 @@ Callback now has its this variable assigned to the specified object
 
     handle = observer_obj.subscribe("foo", obj.func, obj)
 
+### Subscribing with watchdog:
+
+Guarded subscription give as powerful technique to manage errors in subscribed functions
+    
+    observer_obj = new Observer verbose : 'silent'
+
+    callback = (topic, data) -> throw Error "Die at #{topic}"
+    watchdog = (err, options) -> 
+      console.log "Error string: | #{err} |"
+      console.log "Error detail", options
+      null
+    handle = observer_obj.subscribeGuarded 'foo', callback, watchdog
+
+    observer_obj.publish 'foo', 'some data'
+
+return to console
+
+    Error string: | Error: Die at foo |
+    Error detail { topic: 'foo',
+      callback: [Function],
+      object: {},
+      data: [ 'some data' ] }
+
+Now subscribed object MAY decide how support itself errors
 
 ### Unsubscribing:
 
@@ -138,3 +168,5 @@ containing only one topic, even if the #publish() function is called with
 multiple topics because the callback will be run once for each individual
 topic that is published.
 
+## Need you help!
+If you feel ability to translate good Russain README (I'm add it soon) to correct English - please, ping me. Thanks in advance!

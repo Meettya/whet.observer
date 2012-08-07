@@ -1,12 +1,13 @@
 {
     "name": "whet.observer",
-    "version": "0.3.7",
+    "version": "0.4.1",
     "description": "A standalone Observer that actually works on node.js and browser",
     "keywords": [
         "observer",
         "publish",
         "subscribe",
-        "task"
+        "task",
+        "async"
     ],
     "author": "Dmitrii Karpich <meettya@gmail.com>",
     "dependencies": {
