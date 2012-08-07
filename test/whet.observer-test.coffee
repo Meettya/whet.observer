@@ -17,6 +17,7 @@ describe 'Observer:', ->
   callback_simple_obj = 
     topics: 'callback_simple'
     callback: callback_simple
+    watchdog: undefined
     context: {}
 
   callback_with_args = (topic, a, b) ->
@@ -64,6 +65,20 @@ describe 'Observer:', ->
       # yap, its durty but it only for test
       observer_obj._subscriptions_['callback_simple'].length.should.be.equal 1
 
+  describe '#subscribeGuarded()', ->
+
+    it 'should register callback and watchdog and return handle', ->
+      callback_simple_obj.watchdog = watchdog = ->
+      handle = observer_obj.subscribeGuarded('callback_simple', callback_simple, watchdog)
+      handle.should.be.deep.equal callback_simple_obj
+
+    it 'should fired up watchdog on publishing error', ->
+      result = ''
+      observer_obj = new Observer verbose : 'silent'
+      observer_obj.subscribeGuarded('callback_channel', callback_with_error, (err, options) -> result = err)
+      observer_obj.publish('callback_channel')
+      result.should.be.match /Error: callback stop/  
+
   describe '#publish()', ->
 
     it 'should return Error on non-string topic args', ->
@@ -92,18 +107,10 @@ describe 'Observer:', ->
       result_simple.should.not.be.true and result_with_args.should.be.not.equal 30
       
     it 'should not stop all on some broken events callback', ->
+      observer_obj = new Observer verbose : 'silent'
       observer_obj.subscribe('callback_channel', callback_with_error)
       observer_obj.subscribe('callback_channel', callback_simple)
-      
-      ###
-      This hack needed to supress error logger from Observer,
-      we are dont need log at this time
-      ###
-      [tmp, console.error] = [console.error, ->]
       observer_obj.publish('callback_channel')
-      # restore as normal to correct mocha behaviour
-      console.error = tmp
-      
       result_simple.should.be.true
     
     it 'should fired up one subscriber on some different chanel', ->
@@ -118,6 +125,13 @@ describe 'Observer:', ->
       observer_obj.publish('async', ( -> async_obj.internal_var.should.be.equal(4) and temp_var.should.be.equal(0); done() ), 2 )
       temp_var = async_obj.internal_var # got value after |publish| but before message firig
   
+  describe '#publishSync()', ->
+
+    it 'just alias to #publish() and should work in some way', ->
+      observer_obj.subscribe('one two three four', huge_logic.test_function, huge_logic)
+      observer_obj.publish('one two four', 2, 6)
+      huge_logic.internal_var.should.be.equal 132
+
   describe '#publishAsync()', ->
 
     it 'should fired up event with void call', (done) ->
@@ -240,36 +254,22 @@ describe 'Observer:', ->
       huge_logic.internal_var.should.be.equal 88
     
     it 'should prevent unsubscribe while publishing ', ->
+      observer_obj = new Observer verbose : 'error'
       handle = observer_obj.subscribe('callback_channel', callback_simple)
       # its internal thing, but we are must use it to simulate situation
       observer_obj._publishingInc()
       observer_obj.unsubscribe(handle)
-      ###
-      This hack needed to supress error logger from Observer,
-      we are dont need log at this time
-      ###
-      [tmp, console.log] = [console.log, ->]
       observer_obj.publish('callback_channel', 'test') # must fired up event
-      # restore as normal to correct mocha behaviour
-      console.log = tmp
       result_simple.should.be.true
 
     it 'should resume unsubscribing after publishing ', ->
+      observer_obj = new Observer verbose : 'error'
       handle = observer_obj.subscribe('callback_channel', callback_simple)
       # its internal thing, but we are must use it to simulate situation
       observer_obj._publishingInc()
       observer_obj.unsubscribe(handle)
-      ###
-      This hack needed to supress error logger from Observer,
-      we are dont need log at this time
-      ###
-      [tmp, console.log] = [console.log, ->]
-      # internal publish counter 
       observer_obj._publishingDec()
       observer_obj.publish('callback_channel', 'test') # must fired up event
-
-      # restore as normal to correct mocha behaviour
-      console.log = tmp
       # yes, we are force re-init variable
       result_simple = false
       # and another one time!

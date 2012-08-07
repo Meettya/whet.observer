@@ -69,11 +69,37 @@
   _ = (_ref = this._) != null ? _ref : require('underscore');
 
   module.exports = Observer = (function() {
+    /*
+      Verbose levels constants
+    */
 
-    function Observer() {
+    var DEBUG, ERROR, SILENT, WARNING;
+
+    DEBUG = 3;
+
+    WARNING = 2;
+
+    ERROR = 1;
+
+    SILENT = 0;
+
+    /*
+      constructor( [ options ] )
+        options :
+          verbose : ['debug'|'warning'|'error'|'silent'] # verbose levels placed by decrementing
+    */
+
+
+    function Observer(options) {
+      if (options == null) {
+        options = {};
+      }
       this._subscriptions_ = {};
       this._publishing_counter_ = 0;
       this._unsubscribe_queue_ = [];
+      this._tasks_counter_ = 0;
+      this._tasks_dictionary_ = {};
+      this._observer_verbose_level_ = this._parseVerboseLevel(options != null ? options.verbose : void 0);
     }
 
     /*
@@ -81,27 +107,47 @@
        - topics (String): 1 or more topic names, separated by a space, to subscribe to
        - callback (Function): function to be called when the given topic(s) is published to
        - context (Object): an object to call the function on
-      returns: { "topics": topics, "callback": callback } or throw exception on invalid arguments
+      returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
     */
 
 
     Observer.prototype.subscribe = function(topics, callback, context) {
-      var topic, _base, _i, _len, _ref1;
       if (context == null) {
         context = {};
       }
-      if (!(_.isString(topics) || _.isFunction(callback))) {
-        throw this._subscribeErrorMessage(topics, callback, context);
+      return this.subscribeGuarded(topics, callback, void 0, context);
+    };
+
+    /*
+      subscribeGuarded( topics, callback, watchdog [, context] )
+       - topics (String): 1 or more topic names, separated by a space, to subscribe to
+       - callback (Function): function to be called when the given topic(s) is published to
+       - watchdog (Function): function to be called when callback under publishing topic rise exception
+       - context (Object): an object to call the function on
+      returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
+    */
+
+
+    Observer.prototype.subscribeGuarded = function(topics, callback, watchdog, context) {
+      var task_number, topic, _base, _i, _len, _ref1;
+      if (context == null) {
+        context = {};
       }
+      if (!(_.isString(topics) || _.isFunction(callback) || (!(watchdog != null) || _.isFunction(watchdog)))) {
+        throw this._subscribeErrorMessage(topics, callback, watchdog, context);
+      }
+      task_number = this._getNextTaskNumber();
+      this._tasks_dictionary_[task_number] = [callback, context, watchdog];
       _ref1 = this._topicsToArraySplitter(topics);
       for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
         topic = _ref1[_i];
         (_base = this._subscriptions_)[topic] || (_base[topic] = []);
-        this._subscriptions_[topic].push([callback, context]);
+        this._subscriptions_[topic].push(task_number);
       }
       return {
         topics: topics,
         callback: callback,
+        watchdog: watchdog,
         context: context
       };
     };
@@ -115,7 +161,7 @@
 
 
     Observer.prototype.unsubscribe = function(topics, callback, context) {
-      var idx, task, topic, _i, _j, _len, _len1, _ref1, _ref2, _ref3;
+      var idx, task, task_number, topic, _i, _j, _len, _len1, _ref1, _ref2, _ref3;
       if (topics.topics) {
         _ref1 = this._unsubscribeHandlerParser(topics, callback, context), topics = _ref1[0], callback = _ref1[1], context = _ref1[2];
       }
@@ -127,15 +173,25 @@
         this._unsubscribe_queue_.push([topics, callback, context]);
         return this;
       }
+      /*
+          IMPORTANT! Yes, we are remove subscriptions ONLY, 
+          and keep tasks_dictionary untouched because its not necessary.
+          Dictionary compacted, calculations of links to dictionary from subscriptions
+          may be nightmare - its like pointers in C, exceptionally funny in async mode. 
+          So, who get f*ck about this? Not me!!!
+      */
+
       _ref2 = this._topicsToArraySplitter(topics);
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         topic = _ref2[_i];
         if (_.isFunction(callback)) {
           _ref3 = this._subscriptions_[topic];
           for (idx = _j = 0, _len1 = _ref3.length; _j < _len1; idx = ++_j) {
-            task = _ref3[idx];
-            if (_.isEqual(task, [callback, context])) {
-              this._subscriptions_[topic].splice(idx, 1);
+            task_number = _ref3[idx];
+            if (task = this._tasks_dictionary_[task_number]) {
+              if (_.isEqual([task[0], task[1]], [callback, context])) {
+                this._subscriptions_[topic].splice(idx, 1);
+              }
             }
           }
         } else {
@@ -153,6 +209,18 @@
 
 
     Observer.prototype.publish = function() {
+      var data, topics;
+      topics = arguments[0], data = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+      return this._publisher('sync', topics, data);
+    };
+
+    /*
+      publishSync( topics[, data] )
+      alias to #publish()
+    */
+
+
+    Observer.prototype.publishSync = function() {
       var data, topics;
       topics = arguments[0], data = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
       return this._publisher('sync', topics, data);
@@ -200,6 +268,41 @@
     };
 
     /*
+      Self-incapsulated task auto-incremented counter
+    */
+
+
+    Observer.prototype._getNextTaskNumber = function() {
+      return this._tasks_counter_ += 1;
+    };
+
+    /*
+      Verbose level args parser
+    */
+
+
+    Observer.prototype._parseVerboseLevel = function(level) {
+      if (level == null) {
+        return ERROR;
+      }
+      if (!_.isString(level)) {
+        throw this._parseVerboseLevelError(level);
+      }
+      switch (level.toUpperCase()) {
+        case "DEBUG":
+          return DEBUG;
+        case "SILENT":
+          return SILENT;
+        case "ERROR":
+          return ERROR;
+        case "WARNING":
+          return WARNING;
+        default:
+          throw Error("unknown verbose level |" + level + "|");
+      }
+    };
+
+    /*
       Internal method for different events types definitions
       returns: [publish, unsubscribe] or throw exception on invalid arguments
     */
@@ -239,7 +342,7 @@
 
 
     Observer.prototype._publisher = function(type, topics, data) {
-      var task, topic, _i, _j, _len, _len1, _publish, _ref1, _ref2, _ref3, _unsubscribe;
+      var task_number, topic, _i, _j, _len, _len1, _publish, _ref1, _ref2, _ref3, _unsubscribe;
       if (!_.isString(topics)) {
         throw this._publishErrorMessage(topics, data);
       }
@@ -250,9 +353,9 @@
         if (this._subscriptions_[topic]) {
           _ref3 = this._subscriptions_[topic];
           for (_j = 0, _len1 = _ref3.length; _j < _len1; _j++) {
-            task = _ref3[_j];
+            task_number = _ref3[_j];
             this._publishingInc();
-            _publish.call(this, topic, task, data);
+            _publish.call(this, topic, this._tasks_dictionary_[task_number], data);
           }
         }
       }
@@ -308,14 +411,18 @@
     Observer.prototype._unsubscribeResume = function() {
       var task, _base;
       if (this._isPublishing()) {
-        if (typeof console !== "undefined" && console !== null) {
-          console.log('still publishing');
+        if (this._observer_verbose_level_ >= DEBUG) {
+          if (typeof console !== "undefined" && console !== null) {
+            console.log('still publishing');
+          }
         }
         return;
       }
       while (task = typeof (_base = this._unsubscribe_queue_).shift === "function" ? _base.shift() : void 0) {
-        if (typeof console !== "undefined" && console !== null) {
-          console.log("retry unsubscribe " + task);
+        if (this._observer_verbose_level_ >= DEBUG) {
+          if (typeof console !== "undefined" && console !== null) {
+            console.log("retry unsubscribe " + task);
+          }
         }
         this.unsubscribe.apply(this, task);
       }
@@ -328,11 +435,23 @@
 
 
     Observer.prototype._publishFiring = function(topic, task, data) {
+      var err_obj;
       try {
         task[0].apply(task[1], [topic].concat(data));
       } catch (err) {
-        if (typeof console !== "undefined" && console !== null) {
-          console.error("Error on call callback we got exception:\n  topic     = |" + topic + "|\n  callback  = |" + task[0] + "|\n  object    = |" + task[1] + "|\n  data      = |" + (data != null ? data.join(', ') : void 0) + "|\n  error     = |" + err + "|");
+        if (task[2] != null) {
+          err_obj = {
+            topic: topic,
+            callback: task[0],
+            object: task[1],
+            data: data
+          };
+          task[2].call(task[1], err, err_obj);
+        }
+        if (this._observer_verbose_level_ >= ERROR) {
+          if (typeof console !== "undefined" && console !== null) {
+            console.error("Error on call callback we got exception:\n  topic     = |" + topic + "|\n  callback  = |" + task[0] + "|\n  watchdog  = |" + task[2] + "|\n  object    = |" + task[1] + "|\n  data      = |" + (data != null ? data.join(', ') : void 0) + "|\n  error     = |" + err + "|");
+          }
         }
       } finally {
         this._publishingDec();
@@ -369,10 +488,17 @@
     */
 
 
-    Observer.prototype._subscribeErrorMessage = function(topics, callback, context) {
+    Observer.prototype._subscribeErrorMessage = function(topics, callback, watchdog, context) {
       return {
         name: "TypeError",
-        message: "Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|"
+        message: "Error! on call |subscribe| used non-string topics OR/AND callback isn`t function OR/AND watchdog defined but isn`t function:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  watchdog  = |" + watchdog + "|\n  context   = |" + context + "|"
+      };
+    };
+
+    Observer.prototype._parseVerboseLevelError = function(level) {
+      return {
+        name: "TypeError",
+        message: "Error on parsing verbose level - not a String |" + level + "|"
       };
     };
 

@@ -13,32 +13,61 @@
 # resolve require from [window] or by require() 
 _ = @_ ? require 'underscore'
 
-module.exports = class Observer  
+module.exports = class Observer
+  ###
+  Verbose levels constants
+  ###
+  DEBUG   = 3
+  WARNING = 2
+  ERROR   = 1
+  SILENT  = 0
   
-  constructor: -> 
+  ###
+  constructor( [ options ] )
+    options :
+      verbose : ['debug'|'warning'|'error'|'silent'] # verbose levels placed by decrementing
+  ###
+  constructor: (options={}) -> 
     @_subscriptions_       = {}
     @_publishing_counter_  = 0
     @_unsubscribe_queue_   = []
+    @_tasks_counter_       = 0
+    @_tasks_dictionary_    = {}
+    @_observer_verbose_level_ = @_parseVerboseLevel options?.verbose
   
   ###
   subscribe( topics, callback[, context] )
    - topics (String): 1 or more topic names, separated by a space, to subscribe to
    - callback (Function): function to be called when the given topic(s) is published to
    - context (Object): an object to call the function on
-  returns: { "topics": topics, "callback": callback } or throw exception on invalid arguments
+  returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
   ### 
   subscribe: (topics, callback, context = {}) ->
+    @subscribeGuarded topics, callback, undefined, context
+
+  ###
+  subscribeGuarded( topics, callback, watchdog [, context] )
+   - topics (String): 1 or more topic names, separated by a space, to subscribe to
+   - callback (Function): function to be called when the given topic(s) is published to
+   - watchdog (Function): function to be called when callback under publishing topic rise exception
+   - context (Object): an object to call the function on
+  returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
+  ### 
+  subscribeGuarded: (topics, callback, watchdog, context = {}) ->
 
     # Make sure that each argument is valid
-    unless _.isString(topics) or _.isFunction(callback)
-      throw @_subscribeErrorMessage topics, callback, context
+    unless _.isString(topics) or _.isFunction(callback) or ( not watchdog? or _.isFunction watchdog )
+      throw @_subscribeErrorMessage topics, callback, watchdog, context
+
+    task_number = @_getNextTaskNumber()
+    @_tasks_dictionary_[task_number] = [callback, context, watchdog]
 
     for topic in @_topicsToArraySplitter topics
       @_subscriptions_[topic] or= []
-      @_subscriptions_[topic].push [callback, context]     
+      @_subscriptions_[topic].push task_number
       
-    { topics: topics, callback: callback, context:context }
-  
+    { topics: topics, callback: callback, watchdog: watchdog, context: context }
+
   ###
   unsubscribe( topics[, callback[, context]] )
   - topics (String): 1 or more topic names, separated by a space, to unsubscribe from
@@ -62,12 +91,20 @@ module.exports = class Observer
       @_unsubscribe_queue_.push [topics, callback, context]
       return this
     
+    ###
+    IMPORTANT! Yes, we are remove subscriptions ONLY, 
+    and keep tasks_dictionary untouched because its not necessary.
+    Dictionary compacted, calculations of links to dictionary from subscriptions
+    may be nightmare - its like pointers in C, exceptionally funny in async mode. 
+    So, who get f*ck about this? Not me!!!
+    ###
     # Do unsubscribe on all topics
     for topic in @_topicsToArraySplitter topics
       
       if _.isFunction(callback)
-        for task,idx in @_subscriptions_[topic] when _.isEqual task, [callback, context]
-          @_subscriptions_[topic].splice idx, 1
+        for task_number,idx in @_subscriptions_[topic] when task = @_tasks_dictionary_[task_number]
+          if _.isEqual [task[0], task[1]], [callback, context]
+            @_subscriptions_[topic].splice idx, 1
       else
         # If no callback is given, then remove all subscriptions to this topic
         delete @_subscriptions_[topic]
@@ -80,6 +117,13 @@ module.exports = class Observer
   - data: any data (in any format) you wish to give to the subscribers
   ###
   publish: (topics, data...) ->
+    @_publisher 'sync', topics, data
+
+  ###
+  publishSync( topics[, data] )
+  alias to #publish()
+  ###
+  publishSync: (topics, data...) ->
     @_publisher 'sync', topics, data
 
   ###
@@ -115,6 +159,31 @@ module.exports = class Observer
                   """  
     @_publishing_counter_ -= 1
     null
+
+  ###
+  Self-incapsulated task auto-incremented counter
+  ###
+  _getNextTaskNumber: ->
+    @_tasks_counter_ += 1
+
+  ###
+  Verbose level args parser
+  ###
+  _parseVerboseLevel: (level) ->
+    # default level is ERROR
+    unless level?
+      return ERROR
+
+    unless _.isString level
+      throw @_parseVerboseLevelError level
+
+    switch level.toUpperCase()
+      when "DEBUG"    then DEBUG
+      when "SILENT"   then SILENT
+      when "ERROR"    then ERROR
+      when "WARNING"  then WARNING
+      else 
+        throw Error "unknown verbose level |#{level}|"
 
   ###
   Internal method for different events types definitions
@@ -153,9 +222,9 @@ module.exports = class Observer
     [_publish, _unsubscribe] = @_publisherEngine type
 
     for topic in @_topicsToArraySplitter(topics, false) when @_subscriptions_[topic]
-      for task in @_subscriptions_[topic]
+      for task_number in @_subscriptions_[topic]
         @_publishingInc()
-        _publish.call @, topic, task, data
+        _publish.call @, topic, @_tasks_dictionary_[task_number], data
 
     _unsubscribe.call @
 
@@ -188,11 +257,13 @@ module.exports = class Observer
   ###  
   _unsubscribeResume: ->
     if @_isPublishing()
-      console?.log 'still publishing'
+      if @_observer_verbose_level_ >= DEBUG
+        console?.log 'still publishing'
       return 
     # Go through the queue and run unsubscribe again
     while task = @_unsubscribe_queue_.shift?()
-      console?.log "retry unsubscribe #{task}"
+      if @_observer_verbose_level_ >= DEBUG
+        console?.log "retry unsubscribe #{task}"
       @unsubscribe.apply @, task
     
     null
@@ -204,14 +275,26 @@ module.exports = class Observer
     try 
       task[0].apply task[1], [topic].concat data
     catch err
-      console?.error """
-                    Error on call callback we got exception:
-                      topic     = |#{topic}|
-                      callback  = |#{task[0]}|
-                      object    = |#{task[1]}|
-                      data      = |#{data?.join ', '}|
-                      error     = |#{err}|
-                    """   
+      # try to wakeup watchdog
+      if task[2]?
+        err_obj = 
+          topic     : topic
+          callback  : task[0]
+          object    : task[1]
+          data      : data
+
+        task[2].call task[1], err, err_obj
+      # or just put message to log
+      if @_observer_verbose_level_ >= ERROR
+        console?.error """
+                      Error on call callback we got exception:
+                        topic     = |#{topic}|
+                        callback  = |#{task[0]}|
+                        watchdog  = |#{task[2]}|
+                        object    = |#{task[1]}|
+                        data      = |#{data?.join ', '}|
+                        error     = |#{err}|
+                      """   
     finally
       @_publishingDec()
 
@@ -247,14 +330,22 @@ module.exports = class Observer
   ###
   Internal method for subscribe error message constructor
   ###
-  _subscribeErrorMessage: (topics, callback, context) ->
+  _subscribeErrorMessage: (topics, callback, watchdog, context) ->
     {
       name : "TypeError"
       message : """
-                Error! on call |subscribe| used non-string topics OR/AND callback isn`t function:
+                Error! on call |subscribe| used non-string topics OR/AND callback isn`t function OR/AND watchdog defined but isn`t function:
                   topics    = |#{topics}|
                   callback  = |#{callback}|
+                  watchdog  = |#{watchdog}|
                   context   = |#{context}|
                 """
     }
+
+  _parseVerboseLevelError: (level) ->
+    {
+      name : "TypeError"
+      message : "Error on parsing verbose level - not a String |#{level}|"
+    }
+
     

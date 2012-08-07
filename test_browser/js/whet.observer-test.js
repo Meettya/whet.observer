@@ -24,6 +24,7 @@ Its so wrong, but its OK for test
     callback_simple_obj = {
       topics: 'callback_simple',
       callback: callback_simple,
+      watchdog: void 0,
       context: {}
     };
     callback_with_args = function(topic, a, b) {
@@ -84,6 +85,26 @@ Its so wrong, but its OK for test
         return observer_obj._subscriptions_['callback_simple'].length.should.be.equal(1);
       });
     });
+    describe('#subscribeGuarded()', function() {
+      it('should register callback and watchdog and return handle', function() {
+        var handle, watchdog;
+        callback_simple_obj.watchdog = watchdog = function() {};
+        handle = observer_obj.subscribeGuarded('callback_simple', callback_simple, watchdog);
+        return handle.should.be.deep.equal(callback_simple_obj);
+      });
+      return it('should fired up watchdog on publishing error', function() {
+        var result;
+        result = '';
+        observer_obj = new Observer({
+          verbose: 'silent'
+        });
+        observer_obj.subscribeGuarded('callback_channel', callback_with_error, function(err, options) {
+          return result = err;
+        });
+        observer_obj.publish('callback_channel');
+        return result.should.be.match(/Error: callback stop/);
+      });
+    });
     describe('#publish()', function() {
       it('should return Error on non-string topic args', function() {
         observer_obj.subscribe('callback_simple', callback_simple);
@@ -113,17 +134,12 @@ Its so wrong, but its OK for test
         return result_simple.should.not.be["true"] && result_with_args.should.be.not.equal(30);
       });
       it('should not stop all on some broken events callback', function() {
-        var tmp, _ref;
+        observer_obj = new Observer({
+          verbose: 'silent'
+        });
         observer_obj.subscribe('callback_channel', callback_with_error);
         observer_obj.subscribe('callback_channel', callback_simple);
-        /*
-              This hack needed to supress error logger from Observer,
-              we are dont need log at this time
-        */
-
-        _ref = [console.error, function() {}], tmp = _ref[0], console.error = _ref[1];
         observer_obj.publish('callback_channel');
-        console.error = tmp;
         return result_simple.should.be["true"];
       });
       it('should fired up one subscriber on some different chanel', function() {
@@ -140,6 +156,13 @@ Its so wrong, but its OK for test
           return done();
         }), 2);
         return temp_var = async_obj.internal_var;
+      });
+    });
+    describe('#publishSync()', function() {
+      return it('just alias to #publish() and should work in some way', function() {
+        observer_obj.subscribe('one two three four', huge_logic.test_function, huge_logic);
+        observer_obj.publish('one two four', 2, 6);
+        return huge_logic.internal_var.should.be.equal(132);
       });
     });
     describe('#publishAsync()', function() {
@@ -272,34 +295,26 @@ Its so wrong, but its OK for test
         return huge_logic.internal_var.should.be.equal(88);
       });
       it('should prevent unsubscribe while publishing ', function() {
-        var handle, tmp, _ref;
+        var handle;
+        observer_obj = new Observer({
+          verbose: 'error'
+        });
         handle = observer_obj.subscribe('callback_channel', callback_simple);
         observer_obj._publishingInc();
         observer_obj.unsubscribe(handle);
-        /*
-              This hack needed to supress error logger from Observer,
-              we are dont need log at this time
-        */
-
-        _ref = [console.log, function() {}], tmp = _ref[0], console.log = _ref[1];
         observer_obj.publish('callback_channel', 'test');
-        console.log = tmp;
         return result_simple.should.be["true"];
       });
       return it('should resume unsubscribing after publishing ', function() {
-        var handle, tmp, _ref;
+        var handle;
+        observer_obj = new Observer({
+          verbose: 'error'
+        });
         handle = observer_obj.subscribe('callback_channel', callback_simple);
         observer_obj._publishingInc();
         observer_obj.unsubscribe(handle);
-        /*
-              This hack needed to supress error logger from Observer,
-              we are dont need log at this time
-        */
-
-        _ref = [console.log, function() {}], tmp = _ref[0], console.log = _ref[1];
         observer_obj._publishingDec();
         observer_obj.publish('callback_channel', 'test');
-        console.log = tmp;
         result_simple = false;
         observer_obj.publish('callback_channel', 'test');
         return result_simple.should.not.be["true"];
