@@ -1,33 +1,40 @@
-###
- * whet.observer v0.4.1
- * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
- * https://github.com/Meettya/whet.observer
- *
- * Thanks to Joe Zim http://www.joezimjs.com for original Publish/Subscribe plugin for jQuery
- * http://www.joezimjs.com/projects/publish-subscribe-jquery-plugin/
- *
- * Copyright 2012, Dmitrii Karpich
- * Released under the MIT License
-###
-
 # resolve require from [window] or by require() 
 _ = @_ ? require 'underscore'
 
+###
+**whet.observer** - an extended Observer pattern implementation.
+
+@version v0.4.1
+@author Dmitrii Karpich  
+@copyright Dmitrii Karpich (c) 2012 under MIT Licence  
+**GitHub repository** [whet.observer](https://github.com/Meettya/whet.observer)
+
+Thanks to [Joe Zim](http://www.joezimjs.com) for original [Publish/Subscribe plugin](http://www.joezimjs.com/projects/publish-subscribe-jquery-plugin/) for jQuery 
+###
 module.exports = class Observer
-  ###
-  Verbose levels constants
-  ###
+
+  #Verbose levels constants
   DEBUG   = 3
   WARNING = 2
   ERROR   = 1
   SILENT  = 0
+
+  ###
+  Construct a new Observer.
   
+  @example
+    observer_obj = new Observer verbose : 'warning'
+  
+  @overload constructor()
+    Construct new Observer with default options
+  
+  @overload constructor(options)
+    Constrict new Observer with settings
+    @param [Object] options
+    @option options [String] verbose verbose level, may be [ 'debug' | 'warning' | 'error' | 'silent' ]
   ###
-  constructor( [ options ] )
-    options :
-      verbose : ['debug'|'warning'|'error'|'silent'] # verbose levels placed by decrementing
-  ###
-  constructor: (options={}) -> 
+  constructor: (options={}) ->
+      
     @_subscriptions_       = {}
     @_publishing_counter_  = 0
     @_unsubscribe_queue_   = []
@@ -35,24 +42,70 @@ module.exports = class Observer
     @_tasks_dictionary_    = {}
     @_observer_verbose_level_ = @_parseVerboseLevel options?.verbose
   
+
   ###
-  subscribe( topics, callback[, context] )
-   - topics (String): 1 or more topic names, separated by a space, to subscribe to
-   - callback (Function): function to be called when the given topic(s) is published to
-   - context (Object): an object to call the function on
-  returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
-  ### 
+  Subscribe to topic(s).
+  
+  @note The 'callback' function receives 'topic' [String] as first argument and 'data' [Any] as any data that the publisher sent
+  
+  @example
+    handler = observer_obj.subscribe 'foo', (topic, data...) -> console.log data, topic
+  
+  @overload subscribe(topics, callback)
+    Subscribe to topic(s) without context
+    @param topics [String] 1 or more topic names, separated by a space, to subscribe to
+    @param callback [Function] function to be called when the given topic(s) is published to
+    @return [Object]
+  
+  @overload subscribe(topics, callback, context)
+    Subscribe to topic(s) with context
+    @param topics [String] 1 or more topic names, separated by a space, to subscribe to
+    @param callback [Function] function to be called when the given topic(s) is published to
+    @param context [Object] an object to call the function on
+    @return [Object]
+  
+  @return [Object] handler { topics: topics, callback: callback, watchdog: undefined, context: context } or throw exception on invalid arguments
+  ###
   subscribe: (topics, callback, context = {}) ->
     @subscribeGuarded topics, callback, undefined, context
 
   ###
-  subscribeGuarded( topics, callback, watchdog [, context] )
-   - topics (String): 1 or more topic names, separated by a space, to subscribe to
-   - callback (Function): function to be called when the given topic(s) is published to
-   - watchdog (Function): function to be called when callback under publishing topic rise exception
-   - context (Object): an object to call the function on
-  returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
-  ### 
+  Subscribe to topic(s) with 'watchdog' function to handle errors here, in subscriber.
+  
+  @note The 'callback' function receives 'topic' [String] as first argument and 'data' [Any] as any data that the publisher sent
+  
+  @note The 'watchdog' function receives two arguments: 'err' [Error] and 'options' [Object] as all 'callback' properties
+  
+  @example
+    context_object = 
+      name : 'Context Object'
+      callback : (topic, data) -> throw Error "Die at #{topic}"
+      watchdog : (err, options) -> 
+        console.log "Error in | #{@name} |"
+        console.log "Error string: | #{err} |"
+        console.log "Error detail", options
+        null  
+    
+    handler = observer_obj.subscribeGuarded 'foo', context_object.callback, context_object.watchdog, context_object
+  
+  @overload subscribeGuarded(topics, callback, watchdog)
+    Subscribe with 'watchdog' without context
+    @param topics [String] 1 or more topic names, separated by a space, to subscribe to
+    @param callback [Function] function to be called when the given topic(s) is published to
+    @param watchdog [Function] function to be called when callback under publishing topic rise exception
+    @return [Object]
+  
+  @overload subscribeGuarded(topics, callback, watchdog, context)
+    Subscribe with 'watchdog' with context
+    @param topics [String] 1 or more topic names, separated by a space, to subscribe to
+    @param callback [Function] function to be called when the given topic(s) is published to
+    @param watchdog [Function] function to be called when callback under publishing topic rise exception
+    @param context [Object] an object to call the function on
+    @return [Object]
+  
+  @see #subscribe
+  @return [Object] handler { topics: topics, callback: callback, watchdog: watchdog, context: context } or throw exception on invalid arguments
+  ###
   subscribeGuarded: (topics, callback, watchdog, context = {}) ->
 
     # Make sure that each argument is valid
@@ -69,16 +122,50 @@ module.exports = class Observer
     { topics: topics, callback: callback, watchdog: watchdog, context: context }
 
   ###
-  unsubscribe( topics[, callback[, context]] )
-  - topics (String): 1 or more topic names, separated by a space, to unsubscribe from
-  - callback (Function): function to be removed from the topic's subscription list. If none is supplied, all functions are removed from given topic(s)
-  - context (Object): object that was used as the context in the #subscribe() call.
+  Unsubscribe from topic(s) or remove all subscribers from topic(s).
+  
+  @note Unsubscriptions may be placed to queue if Observer do some publish tasks  
+    and restarted to unsubscribe when all publish tasks is done.
+  
+  @example
+    # unsubscribe 'obj' from topics 'foo bar'
+    observer_obj.unsubscribe 'foo bar', callback_reference, obj
+    # remove all subscribers from topics 'bar baz'
+    observer_obj.unsubscribe 'bar baz'
+  
+  @overload unsubscribe(topics)
+    Remove **all** subscriptions from topic(s) 
+    @param topics [String] 1 or more topic names, separated by a space, to unsubscribe from
+    @return [Object]
+  
+  @overload unsubscribe(topics, callback)
+    Remove subscriptions for callback from topic(s) if no context used in the #subscribe() call
+    @param topics [String] 1 or more topic names, separated by a space, to unsubscribe from
+    @param callback [Function] function to be removed from the topics subscription list
+    @return [Object]
+  
+  @overload unsubscribe(topics, callback, context)
+    Remove subscriptions for callback and given context object from topic(s) 
+    @param topics [String] 1 or more topic names, separated by a space, to unsubscribe from
+    @param callback [Function] function to be removed from the topics subscription list
+    @param context [Object] object that was used as the context in the #subscribe() call
+    @return [Object]
+  
+  @overload unsubscribe(handler)
+    Remove subscriptions with *handler* object. May be usefully if subscription created with anonymous 'callback' 
+    @param [Object] handler subscription handler, returned by #subscribeX() method
+    @option handler [String] topics 1 or more topic names, separated by a space, to unsubscribe from
+    @option handler [Function] callback function to be removed from the topics subscription list
+    @option handler [Object] context object that was used as the context in the #subscribe() call
+    @return [Object]
+  
+  @return [Object]  *this* for chaining
   ###
   unsubscribe: (topics, callback, context) ->
  
     # If the handler was used we are need to parse args
     if topics.topics
-      [topics, callback, context] = @_unsubscribeHandlerParser topics, callback, context
+      [topics, callback, context] = @_handlerParser topics, callback, context
       
     context or= {}
  
@@ -112,30 +199,50 @@ module.exports = class Observer
     this
 
   ###
-  publish( topics[, data] )
-  - topics (String): the subscription topic(s) to publish to
-  - data: any data (in any format) you wish to give to the subscribers
+  Synchronously publish any data to topic(s).
+  
+  @example
+    observer_obj.publish 'foo bar', 'This is some data'
+  
+  @overload publish(topics)
+    Do publish to topics without any data
+    @param topics [String] 1 or more topic names, separated by a space, to publish to
+    @return [Object]
+  
+  @overload publish(topics, data...)
+    Do publish with some data to topics
+    @param topics [String] 1 or more topic names, separated by a space, to publish to
+    @param data [Any] any kind of data(s) you wish to give to the subscribers
+    @return [Object]
+  
+  @return [Object] *this* for chaining
   ###
   publish: (topics, data...) ->
     @_publisher 'sync', topics, data
-
+    this
+    
   ###
-  publishSync( topics[, data] )
-  alias to #publish()
+  Alias for {#publish}
+  @return [Object] *this* for chaining
   ###
   publishSync: (topics, data...) ->
     @_publisher 'sync', topics, data
+    this
 
   ###
-  publishAsync( topics[, data] )
-  - topics (String): the subscription topic(s) to publish to
-  - data: any data (in any format) you wish to give to the subscribers
-  Add tasks to queue for asynchronous executions
+  Asynchronously publish any data to topic(s).
+  
+  @note Used exactly as {#publish}, but this method puts task to queue and will returns immediately 
+  
+  @example
+    observer_obj.publishAsync 'foo bar', 'This is some data'
+  
+  See {#publish} for all info
+  @return [Object] *this* for chaining
   ###
   publishAsync: (topics, data...) ->
     @_publisher 'async', topics, data
-
-
+    this
 
   ###
   !!!! Internal methods from now !!!!
@@ -143,14 +250,24 @@ module.exports = class Observer
 
   ###
   Self-incapsulate @_publishing_counter_ properties to internal methods
+  @private
+  @return [Boolean] true if Observer is publishing, false is idle
   ###
   _isPublishing: ->
     !!@_publishing_counter_
 
+  ###
+  Self-incapsulate @_publishing_counter_ properties to internal methods
+  @private
+  ###
   _publishingInc: ->
     @_publishing_counter_ += 1
     null
 
+  ###
+  Self-incapsulate @_publishing_counter_ properties to internal methods
+  @private
+  ###
   _publishingDec: ->
     unless @_isPublishing
       throw Error """
@@ -162,12 +279,17 @@ module.exports = class Observer
 
   ###
   Self-incapsulated task auto-incremented counter
+  @private
+  @return [Integer] unique task number
   ###
   _getNextTaskNumber: ->
     @_tasks_counter_ += 1
 
   ###
   Verbose level args parser
+  @private
+  @param level [String] verbose level name
+  @return [Integer] verbose level
   ###
   _parseVerboseLevel: (level) ->
     # default level is ERROR
@@ -187,10 +309,12 @@ module.exports = class Observer
 
   ###
   Internal method for different events types definitions
-  returns: [publish, unsubscribe] or throw exception on invalid arguments
+  @private
+  @param type [String] engine type name
+  @return [Array<publish, unsubscribe>] engine or throw exception on invalid arguments
   ###
   _publisherEngine: (type) ->
-    # we are need to have reference to global object
+    # we are need to have reference to this object itself
     self = @
 
     engine_dictionary = 
@@ -210,7 +334,11 @@ module.exports = class Observer
     [selected_engine.publish, selected_engine.unsubscribe]
 
   ###
-  Internal publisher itself
+  Publisher itself
+  @private
+  @param type [String] engine type name
+  @param topics [String] topic names
+  @param data [Array] any kind of data(s)
   ###
   _publisher: (type, topics, data) ->
 
@@ -228,12 +356,16 @@ module.exports = class Observer
 
     _unsubscribe.call @
 
-    this
+    null
 
 
   ###
   Internal method for splitting topics string to array.
-  May skip duplicate (it used for un/subscription )
+  @note May skip duplicate (it used for un/subscription )
+  @private
+  @param topics [String] topic names
+  @param skip_duplicate [Boolean] *optional* is it needed to skip duplicate?
+  @return [Array<topics>] individual topics
   ###
   _topicsToArraySplitter: (topics, skip_duplicate = true) ->
     used_topics = {}
@@ -244,17 +376,23 @@ module.exports = class Observer
       topic
 
   ###
-  Internal method for unsubscribe args modificator if method called with handler
+  Internal method for handler parser
+  @private
+  @param handler [Object] handler
+  @param callback [Function] *optional*
+  @param context [Object] *optional*
+  @return [Array<topics, callback, context>] parsed handler
   ###
-  _unsubscribeHandlerParser: (topics, callback, context) ->
-    callback  or= topics.callback
-    context   or= topics.context
-    topics    = topics.topics
+  _handlerParser: (handler, callback, context) ->
+    callback  or= handler.callback
+    context   or= handler.context
+    topics    = handler.topics
     [topics, callback, context]
   
   ###
-  Internal method for unsubscribe continious
-  ###  
+  Internal method for unsubscribe continue
+  @private
+  ###
   _unsubscribeResume: ->
     if @_isPublishing()
       if @_observer_verbose_level_ >= DEBUG
@@ -270,6 +408,7 @@ module.exports = class Observer
 
   ###
   Internal method for publish firing
+  @private
   ###
   _publishFiring: (topic, task, data) ->
     try 
@@ -300,6 +439,8 @@ module.exports = class Observer
 
   ###
   Internal method for publish error message constructor
+  @private
+  @return [Object] Error
   ###
   _publishErrorMessage: (topics, data) ->
     { 
@@ -313,6 +454,8 @@ module.exports = class Observer
 
   ###
   Internal method for unsubscribe error message constructor
+  @private
+  @return [Object] Error
   ###
   _unsubscribeErrorMessage: (topics, callback, context) ->
     {
@@ -324,9 +467,11 @@ module.exports = class Observer
                   context   = |#{context}|
                 """
     }
-    
-  ###
+  
+  ###  
   Internal method for subscribe error message constructor
+  @private
+  @return [Object] Error
   ###
   _subscribeErrorMessage: (topics, callback, watchdog, context) ->
     {
@@ -340,6 +485,11 @@ module.exports = class Observer
                 """
     }
 
+  ###
+  Internal method for error message from verbose level parser
+  @private
+  @return [Object] Error
+  ###
   _parseVerboseLevelError: (level) ->
     {
       name : "TypeError"

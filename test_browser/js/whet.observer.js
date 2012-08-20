@@ -48,31 +48,13 @@
     };
   }
   return this.require.define;
-}).call(this)({"whet.observer": function(exports, require, module) {
-/*
- * whet.observer v0.4.1
- * A standalone Observer that actually works on node.js, adapted from Publish/Subscribe plugin for jQuery
- * https://github.com/Meettya/whet.observer
- *
- * Thanks to Joe Zim http://www.joezimjs.com for original Publish/Subscribe plugin for jQuery
- * http://www.joezimjs.com/projects/publish-subscribe-jquery-plugin/
- *
- * Copyright 2012, Dmitrii Karpich
- * Released under the MIT License
-*/
-
-
-(function() {
+}).call(this)({"whet.observer": function(exports, require, module) {(function() {
   var Observer, _, _ref,
     __slice = [].slice;
 
   _ = (_ref = this._) != null ? _ref : require('underscore');
 
   module.exports = Observer = (function() {
-    /*
-      Verbose levels constants
-    */
-
     var DEBUG, ERROR, SILENT, WARNING;
 
     DEBUG = 3;
@@ -82,13 +64,6 @@
     ERROR = 1;
 
     SILENT = 0;
-
-    /*
-      constructor( [ options ] )
-        options :
-          verbose : ['debug'|'warning'|'error'|'silent'] # verbose levels placed by decrementing
-    */
-
 
     function Observer(options) {
       if (options == null) {
@@ -102,31 +77,12 @@
       this._observer_verbose_level_ = this._parseVerboseLevel(options != null ? options.verbose : void 0);
     }
 
-    /*
-      subscribe( topics, callback[, context] )
-       - topics (String): 1 or more topic names, separated by a space, to subscribe to
-       - callback (Function): function to be called when the given topic(s) is published to
-       - context (Object): an object to call the function on
-      returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
-    */
-
-
     Observer.prototype.subscribe = function(topics, callback, context) {
       if (context == null) {
         context = {};
       }
       return this.subscribeGuarded(topics, callback, void 0, context);
     };
-
-    /*
-      subscribeGuarded( topics, callback, watchdog [, context] )
-       - topics (String): 1 or more topic names, separated by a space, to subscribe to
-       - callback (Function): function to be called when the given topic(s) is published to
-       - watchdog (Function): function to be called when callback under publishing topic rise exception
-       - context (Object): an object to call the function on
-      returns: { "topics": topics, "callback": callback, "watchdog": watchdog, "context": context } or throw exception on invalid arguments
-    */
-
 
     Observer.prototype.subscribeGuarded = function(topics, callback, watchdog, context) {
       var task_number, topic, _base, _i, _len, _ref1;
@@ -152,18 +108,10 @@
       };
     };
 
-    /*
-      unsubscribe( topics[, callback[, context]] )
-      - topics (String): 1 or more topic names, separated by a space, to unsubscribe from
-      - callback (Function): function to be removed from the topic's subscription list. If none is supplied, all functions are removed from given topic(s)
-      - context (Object): object that was used as the context in the #subscribe() call.
-    */
-
-
     Observer.prototype.unsubscribe = function(topics, callback, context) {
       var idx, task, task_number, topic, _i, _j, _len, _len1, _ref1, _ref2, _ref3;
       if (topics.topics) {
-        _ref1 = this._unsubscribeHandlerParser(topics, callback, context), topics = _ref1[0], callback = _ref1[1], context = _ref1[2];
+        _ref1 = this._handlerParser(topics, callback, context), topics = _ref1[0], callback = _ref1[1], context = _ref1[2];
       }
       context || (context = {});
       if (!_.isString(topics)) {
@@ -201,38 +149,17 @@
       return this;
     };
 
-    /*
-      publish( topics[, data] )
-      - topics (String): the subscription topic(s) to publish to
-      - data: any data (in any format) you wish to give to the subscribers
-    */
-
-
     Observer.prototype.publish = function() {
       var data, topics;
       topics = arguments[0], data = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
       return this._publisher('sync', topics, data);
     };
 
-    /*
-      publishSync( topics[, data] )
-      alias to #publish()
-    */
-
-
     Observer.prototype.publishSync = function() {
       var data, topics;
       topics = arguments[0], data = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
       return this._publisher('sync', topics, data);
     };
-
-    /*
-      publishAsync( topics[, data] )
-      - topics (String): the subscription topic(s) to publish to
-      - data: any data (in any format) you wish to give to the subscribers
-      Add tasks to queue for asynchronous executions
-    */
-
 
     Observer.prototype.publishAsync = function() {
       var data, topics;
@@ -242,11 +169,6 @@
 
     /*
       !!!! Internal methods from now !!!!
-    */
-
-
-    /*
-      Self-incapsulate @_publishing_counter_ properties to internal methods
     */
 
 
@@ -267,19 +189,9 @@
       return null;
     };
 
-    /*
-      Self-incapsulated task auto-incremented counter
-    */
-
-
     Observer.prototype._getNextTaskNumber = function() {
       return this._tasks_counter_ += 1;
     };
-
-    /*
-      Verbose level args parser
-    */
-
 
     Observer.prototype._parseVerboseLevel = function(level) {
       if (level == null) {
@@ -301,12 +213,6 @@
           throw Error("unknown verbose level |" + level + "|");
       }
     };
-
-    /*
-      Internal method for different events types definitions
-      returns: [publish, unsubscribe] or throw exception on invalid arguments
-    */
-
 
     Observer.prototype._publisherEngine = function(type) {
       var engine_dictionary, selected_engine, self;
@@ -336,11 +242,6 @@
       return [selected_engine.publish, selected_engine.unsubscribe];
     };
 
-    /*
-      Internal publisher itself
-    */
-
-
     Observer.prototype._publisher = function(type, topics, data) {
       var task_number, topic, _i, _j, _len, _len1, _publish, _ref1, _ref2, _ref3, _unsubscribe;
       if (!_.isString(topics)) {
@@ -362,12 +263,6 @@
       _unsubscribe.call(this);
       return this;
     };
-
-    /*
-      Internal method for splitting topics string to array.
-      May skip duplicate (it used for un/subscription )
-    */
-
 
     Observer.prototype._topicsToArraySplitter = function(topics, skip_duplicate) {
       var topic, used_topics, _i, _len, _ref1, _results;
@@ -391,22 +286,13 @@
       return _results;
     };
 
-    /*
-      Internal method for unsubscribe args modificator if method called with handler
-    */
-
-
-    Observer.prototype._unsubscribeHandlerParser = function(topics, callback, context) {
-      callback || (callback = topics.callback);
-      context || (context = topics.context);
-      topics = topics.topics;
+    Observer.prototype._handlerParser = function(handler, callback, context) {
+      var topics;
+      callback || (callback = handler.callback);
+      context || (context = handler.context);
+      topics = handler.topics;
       return [topics, callback, context];
     };
-
-    /*
-      Internal method for unsubscribe continious
-    */
-
 
     Observer.prototype._unsubscribeResume = function() {
       var task, _base;
@@ -428,11 +314,6 @@
       }
       return null;
     };
-
-    /*
-      Internal method for publish firing
-    */
-
 
     Observer.prototype._publishFiring = function(topic, task, data) {
       var _ref1;
@@ -458,11 +339,6 @@
       return null;
     };
 
-    /*
-      Internal method for publish error message constructor
-    */
-
-
     Observer.prototype._publishErrorMessage = function(topics, data) {
       return {
         name: "TypeError",
@@ -470,22 +346,12 @@
       };
     };
 
-    /*
-      Internal method for unsubscribe error message constructor
-    */
-
-
     Observer.prototype._unsubscribeErrorMessage = function(topics, callback, context) {
       return {
         name: "TypeError",
         message: "Error on call |unsubscribe| used non-string topics:\n  topics    = |" + topics + "|\n  callback  = |" + callback + "|\n  context   = |" + context + "|"
       };
     };
-
-    /*
-      Internal method for subscribe error message constructor
-    */
-
 
     Observer.prototype._subscribeErrorMessage = function(topics, callback, watchdog, context) {
       return {

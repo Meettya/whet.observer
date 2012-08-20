@@ -9,6 +9,8 @@ Its so wrong, but its OK for test
 
 (function() {
   var Observer, lib_path,
+    __hasProp = {}.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     __slice = [].slice;
 
   lib_path = (typeof GLOBAL !== "undefined" && GLOBAL !== null ? GLOBAL.lib_path : void 0) || '';
@@ -69,6 +71,34 @@ Its so wrong, but its OK for test
       result_simple = false;
       result_with_args = false;
       return huge_logic.internal_var = 0;
+    });
+    describe('class', function() {
+      return it('should may be used as base class', function() {
+        var SuperObserver, super_observer_obj;
+        SuperObserver = (function(_super) {
+
+          __extends(SuperObserver, _super);
+
+          function SuperObserver() {
+            return SuperObserver.__super__.constructor.apply(this, arguments);
+          }
+
+          SuperObserver.prototype.foo = false;
+
+          SuperObserver.prototype.makeFoo = function() {
+            return this.foo = true;
+          };
+
+          return SuperObserver;
+
+        })(Observer);
+        super_observer_obj = new SuperObserver({
+          verbose: 'debug'
+        });
+        super_observer_obj.makeFoo();
+        super_observer_obj._observer_verbose_level_.should.be.equal(3);
+        return super_observer_obj.foo.should.to.be["true"];
+      });
     });
     describe('#subscribe()', function() {
       it('should register callback and return handle', function() {
