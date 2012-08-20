@@ -1,7 +1,8 @@
-fs            = require 'fs'
-CoffeeScript  = require 'coffee-script'
-{spawn, exec} = require 'child_process'
-Stitch        = require 'stitch'
+fs                = require 'fs'
+CoffeeScript      = require 'coffee-script'
+{spawn, exec}     = require 'child_process'
+Stitch            = require 'stitch'
+
 
 # ANSI Terminal Colors.
 enableColors = no

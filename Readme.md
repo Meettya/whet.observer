@@ -1,3 +1,15 @@
+# WARNING - module deprecated!
+
+In case of adding number of some different improvement it is not anymore a classical Observer.
+
+So, its was renamed to [Dendrite](https://github.com/Meettya/dendrite), use it.
+
+This module (whet.observer) is **deprecated** and not supported from now.
+Sorry about caused inconvenience.
+
+Why renamed? We are haved [Axon](https://github.com/visionmedia/axon) to long ranges, now we are have Dendrite to short ranges. That makes sense :)
+
+
 [![Build Status](https://secure.travis-ci.org/Meettya/whet.observer.png)](http://travis-ci.org/Meettya/whet.observer)
 
 # whet.observer
@@ -167,6 +179,3 @@ function was subscribed and invoked from. This will always be a string
 containing only one topic, even if the #publish() function is called with
 multiple topics because the callback will be run once for each individual
 topic that is published.
-
-## Need you help!
-If you feel ability to translate good Russain README (I'm add it soon) to correct English - please, ping me. Thanks in advance!

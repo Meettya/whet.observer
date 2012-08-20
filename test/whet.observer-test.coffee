@@ -50,6 +50,18 @@ describe 'Observer:', ->
     result_with_args = false
     huge_logic.internal_var = 0
   
+  describe 'class', ->
+    
+    it 'should may be used as base class', ->
+      class SuperObserver extends Observer
+        foo  : false
+        makeFoo : -> @foo = true
+
+      super_observer_obj = new SuperObserver verbose : 'debug'
+      super_observer_obj.makeFoo()
+      super_observer_obj._observer_verbose_level_.should.be.equal 3
+      super_observer_obj.foo.should.to.be.true
+
   describe '#subscribe()', ->
     
     it 'should register callback and return handle', ->
@@ -274,4 +286,6 @@ describe 'Observer:', ->
       result_simple = false
       # and another one time!
       observer_obj.publish('callback_channel', 'test')
-      result_simple.should.not.be.true      
+      result_simple.should.not.be.true
+
+
